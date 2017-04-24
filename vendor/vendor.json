@@ -49,6 +49,12 @@
 			"revisionTime": "2017-01-03T08:10:50Z"
 		},
 		{
+			"checksumSHA1": "1fa3tUNwAsXiY+ewDGvQmgOiqgQ=",
+			"path": "github.com/gdavison/crypto-goregen",
+			"revision": "f031db2677a594f69274aae23fae6887426b8a32",
+			"revisionTime": "2017-04-10T21:00:45Z"
+		},
+		{
 			"checksumSHA1": "42vkdsxNaLyPu+FktCzZ/8zsNSE=",
 			"path": "github.com/go-sql-driver/mysql",
 			"revision": "9dee4ca50b83acdf57a35fb9e6fb4be640afa2f3",
@@ -183,96 +189,104 @@
 		{
 			"checksumSHA1": "8VOnoB0DNWtRNMFvfuA8AuYOLik=",
 			"path": "github.com/hashicorp/vault/api",
-			"revision": "d9ce189b33198c83622d13e89b4ba935198e6236",
-			"revisionTime": "2017-04-19T22:46:07Z",
+			"revision": "3ceb7b69e1e28f831efe097b9f72c33f473007e5",
+			"revisionTime": "2017-04-21T17:24:34Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
-			"checksumSHA1": "8tomlPDxMQRjWd8NfK3WpQkDwzo=",
+			"checksumSHA1": "TsNtS0qqNyuuIKS2yM7yVlxWd24=",
 			"path": "github.com/hashicorp/vault/builtin/logical/database/dbplugin",
-			"revision": "d9ce189b33198c83622d13e89b4ba935198e6236",
-			"revisionTime": "2017-04-19T22:46:07Z",
+			"revision": "3ceb7b69e1e28f831efe097b9f72c33f473007e5",
+			"revisionTime": "2017-04-21T17:24:34Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
 			"checksumSHA1": "IeG9kcBwWtNcAWNyipE2TV1O2RM=",
 			"path": "github.com/hashicorp/vault/helper/certutil",
-			"revision": "d9ce189b33198c83622d13e89b4ba935198e6236",
-			"revisionTime": "2017-04-19T22:46:07Z",
+			"revision": "3ceb7b69e1e28f831efe097b9f72c33f473007e5",
+			"revisionTime": "2017-04-21T17:24:34Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
 			"checksumSHA1": "ft77GtqeZEeCXioGpF/s6DlGm/U=",
 			"path": "github.com/hashicorp/vault/helper/compressutil",
-			"revision": "d9ce189b33198c83622d13e89b4ba935198e6236",
-			"revisionTime": "2017-04-19T22:46:07Z",
+			"revision": "3ceb7b69e1e28f831efe097b9f72c33f473007e5",
+			"revisionTime": "2017-04-21T17:24:34Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
 			"checksumSHA1": "fuAZjiabZXVJ7ORLb0vjLOT4+iU=",
 			"path": "github.com/hashicorp/vault/helper/errutil",
-			"revision": "d9ce189b33198c83622d13e89b4ba935198e6236",
-			"revisionTime": "2017-04-19T22:46:07Z",
+			"revision": "3ceb7b69e1e28f831efe097b9f72c33f473007e5",
+			"revisionTime": "2017-04-21T17:24:34Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
 			"checksumSHA1": "yUiSTPf0QUuL2r/81sjuytqBoeQ=",
 			"path": "github.com/hashicorp/vault/helper/jsonutil",
-			"revision": "d9ce189b33198c83622d13e89b4ba935198e6236",
-			"revisionTime": "2017-04-19T22:46:07Z",
+			"revision": "3ceb7b69e1e28f831efe097b9f72c33f473007e5",
+			"revisionTime": "2017-04-21T17:24:34Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
 			"checksumSHA1": "0hby54fDnmZc1vWBF2TUCHCnLdc=",
 			"path": "github.com/hashicorp/vault/helper/mlock",
-			"revision": "d9ce189b33198c83622d13e89b4ba935198e6236",
-			"revisionTime": "2017-04-19T22:46:07Z",
+			"revision": "3ceb7b69e1e28f831efe097b9f72c33f473007e5",
+			"revisionTime": "2017-04-21T17:24:34Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
-			"checksumSHA1": "PW5UXkT+zlbEn7TlhOhB7WWADqY=",
+			"checksumSHA1": "T4xPqpEPRkwl8bqFuu/R3Y31GPg=",
 			"path": "github.com/hashicorp/vault/helper/pluginutil",
-			"revision": "d9ce189b33198c83622d13e89b4ba935198e6236",
-			"revisionTime": "2017-04-19T22:46:07Z",
+			"revision": "3ceb7b69e1e28f831efe097b9f72c33f473007e5",
+			"revisionTime": "2017-04-21T17:24:34Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
 			"checksumSHA1": "NQEHQjdnHmXirpCu96wgBJUKjj8=",
 			"path": "github.com/hashicorp/vault/helper/strutil",
-			"revision": "d9ce189b33198c83622d13e89b4ba935198e6236",
-			"revisionTime": "2017-04-19T22:46:07Z",
+			"revision": "3ceb7b69e1e28f831efe097b9f72c33f473007e5",
+			"revisionTime": "2017-04-21T17:24:34Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
 			"checksumSHA1": "Q21ZzCs4dTSallxpU4a+hpDWhO0=",
 			"path": "github.com/hashicorp/vault/helper/tlsutil",
-			"revision": "d9ce189b33198c83622d13e89b4ba935198e6236",
-			"revisionTime": "2017-04-19T22:46:07Z",
+			"revision": "3ceb7b69e1e28f831efe097b9f72c33f473007e5",
+			"revisionTime": "2017-04-21T17:24:34Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
 			"checksumSHA1": "l2W21FmtZ94Afn3wBdPt8Qh3cO8=",
 			"path": "github.com/hashicorp/vault/plugins/helper/database/connutil",
-			"revision": "d9ce189b33198c83622d13e89b4ba935198e6236",
-			"revisionTime": "2017-04-19T22:46:07Z",
+			"revision": "3ceb7b69e1e28f831efe097b9f72c33f473007e5",
+			"revisionTime": "2017-04-21T17:24:34Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
 			"checksumSHA1": "Yc4/+VVxxBlrVZzF6mePrQV/l0s=",
 			"path": "github.com/hashicorp/vault/plugins/helper/database/credsutil",
-			"revision": "d9ce189b33198c83622d13e89b4ba935198e6236",
-			"revisionTime": "2017-04-19T22:46:07Z",
+			"revision": "3ceb7b69e1e28f831efe097b9f72c33f473007e5",
+			"revisionTime": "2017-04-21T17:24:34Z",
+			"version": "=database-refactor",
+			"versionExact": "database-refactor"
+		},
+		{
+			"checksumSHA1": "kAUwX708ApG6kcHA3aiHjEiBXKM=",
+			"path": "github.com/hashicorp/vault/plugins/helper/database/dbutil",
+			"revision": "3ceb7b69e1e28f831efe097b9f72c33f473007e5",
+			"revisionTime": "2017-04-21T17:24:34Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},

@@ -7,6 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tgulacsi/go/orahlp"
+
+	"github.com/hashicorp/vault/builtin/logical/database/dbplugin"
 	"github.com/hashicorp/vault/plugins/helper/database/connutil"
 	dockertest "gopkg.in/ory-am/dockertest.v3"
 )
@@ -78,3 +81,56 @@ func TestOracle_Initialize(t *testing.T) {
 		t.Fatalf("err: %s", err)
 	}
 }
+
+func TestOracle_CreateUser(t *testing.T) {
+	cleanup, connURL := prepareOracleTestContainer(t)
+	defer cleanup()
+
+	connectionDetails := map[string]interface{}{
+		"connection_url": connURL,
+	}
+
+	db := New()
+	err := db.Initialize(connectionDetails, true)
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	// Test with no configured Creation Statememt
+	_, _, err = db.CreateUser(dbplugin.Statements{}, "test", time.Now().Add(time.Minute))
+	if err == nil {
+		t.Fatal("Expected error when no creation statement is provided")
+	}
+
+	statements := dbplugin.Statements{
+		CreationStatements: testRole,
+	}
+
+	username, password, err := db.CreateUser(statements, "test", time.Now().Add(time.Minute))
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	if err = testCredsExist(t, connURL, username, password); err != nil {
+		t.Fatalf("Could not connect with new credentials: %s", err)
+	}
+}
+
+func testCredsExist(t testing.TB, connString, username, password string) error {
+	// Log in with the new creds
+	_, _, link := orahlp.SplitDSN(connString)
+	connURL := fmt.Sprintf("%s/%s@%s", username, password, link)
+
+	db, err := sql.Open("oci8", connURL)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	return db.Ping()
+}
+
+const testRole = `
+CREATE USER {{name}} IDENTIFIED BY {{password}};
+GRANT CONNECT TO {{name}};
+GRANT CREATE SESSION TO {{name}};
+`
