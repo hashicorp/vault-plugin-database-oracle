@@ -26,7 +26,7 @@ func prepareOracleTestContainer(t *testing.T) (cleanup func(), connString string
 
 	resource, err := pool.Run("wnameless/oracle-xe-11g", "latest", []string{})
 	if err != nil {
-		t.Fatalf("Could not start local MySQL docker container: %s", err)
+		t.Fatalf("Could not start local Oracle docker container: %s", err)
 	}
 
 	cleanup = func() {
@@ -113,6 +113,44 @@ func TestOracle_CreateUser(t *testing.T) {
 
 	if err = testCredsExist(t, connURL, username, password); err != nil {
 		t.Fatalf("Could not connect with new credentials: %s", err)
+	}
+}
+
+func TestOracle_RevokeUser(t *testing.T) {
+	cleanup, connURL := prepareOracleTestContainer(t)
+	defer cleanup()
+
+	connectionDetails := map[string]interface{}{
+		"connection_url": connURL,
+	}
+
+	db := New()
+	err := db.Initialize(connectionDetails, true)
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	statements := dbplugin.Statements{
+		CreationStatements: testRole,
+	}
+
+	username, password, err := db.CreateUser(statements, "test", time.Now().Add(2*time.Second))
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	if err = testCredsExist(t, connURL, username, password); err != nil {
+		t.Fatalf("Could not connect with new credentials: %s", err)
+	}
+
+	// Test default revoke statements
+	err = db.RevokeUser(statements, username)
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	if err := testCredsExist(t, connURL, username, password); err == nil {
+		t.Fatal("Credentials were not revoked")
 	}
 }
 
