@@ -96,7 +96,7 @@ func TestOracle_CreateUser(t *testing.T) {
 		t.Fatalf("err: %s", err)
 	}
 
-	// Test with no configured Creation Statememt
+	// Test with no configured Creation Statement
 	_, _, err = db.CreateUser(dbplugin.Statements{}, "test", time.Now().Add(time.Minute))
 	if err == nil {
 		t.Fatal("Expected error when no creation statement is provided")
@@ -111,7 +111,7 @@ func TestOracle_CreateUser(t *testing.T) {
 		t.Fatalf("err: %s", err)
 	}
 
-	if err = testCredsExist(t, connURL, username, password); err != nil {
+	if err = testCredentialsExist(connURL, username, password); err != nil {
 		t.Fatalf("Could not connect with new credentials: %s", err)
 	}
 }
@@ -139,7 +139,7 @@ func TestOracle_RevokeUser(t *testing.T) {
 		t.Fatalf("err: %s", err)
 	}
 
-	if err = testCredsExist(t, connURL, username, password); err != nil {
+	if err = testCredentialsExist(connURL, username, password); err != nil {
 		t.Fatalf("Could not connect with new credentials: %s", err)
 	}
 
@@ -149,13 +149,13 @@ func TestOracle_RevokeUser(t *testing.T) {
 		t.Fatalf("err: %s", err)
 	}
 
-	if err := testCredsExist(t, connURL, username, password); err == nil {
+	if err := testCredentialsExist(connURL, username, password); err == nil {
 		t.Fatal("Credentials were not revoked")
 	}
 }
 
-func testCredsExist(t testing.TB, connString, username, password string) error {
-	// Log in with the new creds
+func testCredentialsExist(connString, username, password string) error {
+	// Log in with the new credentials
 	_, _, link := orahlp.SplitDSN(connString)
 	connURL := fmt.Sprintf("%s/%s@%s", username, password, link)
 

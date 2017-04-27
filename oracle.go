@@ -15,7 +15,7 @@ import (
 	"github.com/hashicorp/vault/plugins/helper/database/dbutil"
 )
 
-const oracleTypeName string = "oci8"
+const typeName string = "oci8"
 
 const revocationSQL = `
 REVOKE CONNECT FROM {{name}};
@@ -34,7 +34,7 @@ type Oracle struct {
 
 func New() *Oracle {
 	connProducer := &connutil.SQLConnectionProducer{}
-	connProducer.Type = oracleTypeName
+	connProducer.Type = typeName
 
 	credsProducer := &oracleCredentialsProducer{}
 
@@ -46,32 +46,32 @@ func New() *Oracle {
 	return dbType
 }
 
-func (p *Oracle) CreateUser(statements dbplugin.Statements, usernamePrefix string, expiration time.Time) (username string, password string, err error) {
+func (o *Oracle) CreateUser(statements dbplugin.Statements, usernamePrefix string, expiration time.Time) (username string, password string, err error) {
 	if statements.CreationStatements == "" {
 		return "", "", dbutil.ErrEmptyCreationStatement
 	}
 
 	// Grab the lock
-	p.Lock()
-	defer p.Unlock()
+	o.Lock()
+	defer o.Unlock()
 
-	username, err = p.GenerateUsername(usernamePrefix)
+	username, err = o.GenerateUsername(usernamePrefix)
 	if err != nil {
 		return "", "", err
 	}
 
-	password, err = p.GeneratePassword()
+	password, err = o.GeneratePassword()
 	if err != nil {
 		return "", "", err
 	}
 
-	expirationStr, err := p.GenerateExpiration(expiration)
+	expirationStr, err := o.GenerateExpiration(expiration)
 	if err != nil {
 		return "", "", err
 	}
 
 	// Get the connection
-	db, err := p.getConnection()
+	db, err := o.getConnection()
 	if err != nil {
 		return "", "", err
 
@@ -181,8 +181,8 @@ func (o *Oracle) RevokeUser(statements dbplugin.Statements, username string) err
 	return nil
 }
 
-func (p *Oracle) getConnection() (*sql.DB, error) {
-	db, err := p.Connection()
+func (o *Oracle) getConnection() (*sql.DB, error) {
+	db, err := o.Connection()
 	if err != nil {
 		return nil, err
 	}
