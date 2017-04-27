@@ -3,18 +3,11 @@ package pluginutil
 import (
 	"crypto/sha256"
 	"fmt"
-	"os"
 	"os/exec"
 	"time"
 
 	plugin "github.com/hashicorp/go-plugin"
-	"github.com/hashicorp/vault/helper/mlock"
-)
-
-var (
-	// PluginUnwrapTokenEnv is the ENV name used to pass unwrap tokens to the
-	// plugin.
-	PluginMlockEnabled = "VAULT_PLUGIN_MLOCK_ENABLED"
+	"github.com/hashicorp/vault/helper/wrapping"
 )
 
 // Looker defines the plugin Lookup function that looks into the plugin catalog
@@ -27,8 +20,8 @@ type Looker interface {
 // metadata needed to run a plugin process. This includes looking up Mlock
 // configuration and wrapping data in a respose wrapped token.
 type Wrapper interface {
-	ResponseWrapData(data map[string]interface{}, ttl time.Duration, jwt bool) (string, error)
-	MlockDisabled() bool
+	ResponseWrapData(data map[string]interface{}, ttl time.Duration, jwt bool) (*wrapping.ResponseWrapInfo, error)
+	MlockEnabled() bool
 }
 
 // LookWrapper defines the functions for both Looker and Wrapper
@@ -70,17 +63,14 @@ func (r *PluginRunner) Run(wrapper Wrapper, pluginMap map[string]plugin.Plugin, 
 		return nil, err
 	}
 
-	mlock := "true"
-	if wrapper.MlockDisabled() {
-		mlock = "false"
-	}
-
 	cmd := exec.Command(r.Command, r.Args...)
 	cmd.Env = append(cmd.Env, env...)
 	// Add the response wrap token to the ENV of the plugin
 	cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", PluginUnwrapTokenEnv, wrapToken))
 	// Add the mlock setting to the ENV of the plugin
-	cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", PluginMlockEnabled, mlock))
+	if wrapper.MlockEnabled() {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", PluginMlockEnabled, "true"))
+	}
 
 	secureConfig := &plugin.SecureConfig{
 		Checksum: r.Sha256,
@@ -96,14 +86,4 @@ func (r *PluginRunner) Run(wrapper Wrapper, pluginMap map[string]plugin.Plugin, 
 	})
 
 	return client, nil
-}
-
-// OptionallyEnableMlock determines if mlock should be called, and if so enables
-// mlock.
-func OptionallyEnableMlock() error {
-	if os.Getenv(PluginMlockEnabled) == "true" {
-		return mlock.LockMemory()
-	}
-
-	return nil
 }
