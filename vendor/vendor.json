@@ -3,10 +3,6 @@
 	"ignore": "test",
 	"package": [
 		{
-			"path": "appengine/cloudsql",
-			"revision": ""
-		},
-		{
 			"checksumSHA1": "t+uej2kiyqRyQYguygI8t9nJH2w=",
 			"path": "github.com/SermoDigital/jose",
 			"revision": "2bd9b81ac51d6d6134fcd4fd846bd2e7347a15f9",
@@ -401,24 +397,6 @@
 			"revisionTime": "2017-04-05T16:58:12Z"
 		},
 		{
-			"checksumSHA1": "ZQdHbB9VYCXwQ+9/CmZPhJv0+SM=",
-			"path": "golang.org/x/text/internal/gen",
-			"revision": "e2fd46741f65c5fcf3d8e106e9a45d62cd51d87a",
-			"revisionTime": "2017-04-17T02:18:38Z"
-		},
-		{
-			"checksumSHA1": "47nwiUyVBY2RKoEGXmCSvusY4Js=",
-			"path": "golang.org/x/text/internal/triegen",
-			"revision": "e2fd46741f65c5fcf3d8e106e9a45d62cd51d87a",
-			"revisionTime": "2017-04-17T02:18:38Z"
-		},
-		{
-			"checksumSHA1": "Yd5wMObzagIfCiKLpZbtBIrOUA4=",
-			"path": "golang.org/x/text/internal/ucd",
-			"revision": "e2fd46741f65c5fcf3d8e106e9a45d62cd51d87a",
-			"revisionTime": "2017-04-17T02:18:38Z"
-		},
-		{
 			"checksumSHA1": "faFDXp++cLjLBlvsr+izZ+go1WU=",
 			"path": "golang.org/x/text/secure/bidirule",
 			"revision": "e2fd46741f65c5fcf3d8e106e9a45d62cd51d87a",
@@ -437,20 +415,8 @@
 			"revisionTime": "2017-04-17T02:18:38Z"
 		},
 		{
-			"checksumSHA1": "ZbYsJjfj1rPbHN+0baD1rg09PXQ=",
-			"path": "golang.org/x/text/unicode/cldr",
-			"revision": "e2fd46741f65c5fcf3d8e106e9a45d62cd51d87a",
-			"revisionTime": "2017-04-17T02:18:38Z"
-		},
-		{
 			"checksumSHA1": "gYoNrZgxCQAHutg2rGHcFoKJtpA=",
 			"path": "golang.org/x/text/unicode/norm",
-			"revision": "e2fd46741f65c5fcf3d8e106e9a45d62cd51d87a",
-			"revisionTime": "2017-04-17T02:18:38Z"
-		},
-		{
-			"checksumSHA1": "5R2IZ5umPfkD5QKt3pwrbIgmrDk=",
-			"path": "golang.org/x/text/unicode/rangetable",
 			"revision": "e2fd46741f65c5fcf3d8e106e9a45d62cd51d87a",
 			"revisionTime": "2017-04-17T02:18:38Z"
 		},
