@@ -120,6 +120,11 @@ func (o *Oracle) CreateUser(statements dbplugin.Statements, usernamePrefix strin
 	return username, password, nil
 }
 
+// NOOP
+func (o *Oracle) RenewUser(statements dbplugin.Statements, username string, expiration time.Time) error {
+	return nil
+}
+
 func (o *Oracle) RevokeUser(statements dbplugin.Statements, username string) error {
 	// Grab the lock
 	o.Lock()

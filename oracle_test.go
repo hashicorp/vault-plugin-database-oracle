@@ -116,6 +116,46 @@ func TestOracle_CreateUser(t *testing.T) {
 	}
 }
 
+func TestOracle_RenewUser(t *testing.T) {
+	cleanup, connURL := prepareOracleTestContainer(t)
+	defer cleanup()
+
+	connectionDetails := map[string]interface{}{
+		"connection_url": connURL,
+	}
+
+	db := New()
+	err := db.Initialize(connectionDetails, true)
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	statements := dbplugin.Statements{
+		CreationStatements: testRole,
+	}
+
+	username, password, err := db.CreateUser(statements, "test", time.Now().Add(2*time.Second))
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	if err = testCredentialsExist(connURL, username, password); err != nil {
+		t.Fatalf("Could not connect with new credentials: %s", err)
+	}
+
+	err = db.RenewUser(statements, username, time.Now().Add(time.Minute))
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	// Sleep longer than the initial expiration time
+	time.Sleep(2 * time.Second)
+
+	if err = testCredentialsExist(connURL, username, password); err != nil {
+		t.Fatalf("Could not connect with new credentials: %s", err)
+	}
+}
+
 func TestOracle_RevokeUser(t *testing.T) {
 	cleanup, connURL := prepareOracleTestContainer(t)
 	defer cleanup()
