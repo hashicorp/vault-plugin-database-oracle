@@ -2,12 +2,12 @@ package oracle
 
 import (
 	"database/sql"
+	"fmt"
 	"strings"
 	"time"
 
 	_ "github.com/mattn/go-oci8"
 
-	"fmt"
 	"github.com/hashicorp/vault/builtin/logical/database/dbplugin"
 	"github.com/hashicorp/vault/helper/strutil"
 	"github.com/hashicorp/vault/plugins/helper/database/connutil"
@@ -44,6 +44,10 @@ func New() *Oracle {
 	}
 
 	return dbType
+}
+
+func (o *Oracle) Type() (string, error) {
+	return typeName, nil
 }
 
 func (o *Oracle) CreateUser(statements dbplugin.Statements, usernamePrefix string, expiration time.Time) (username string, password string, err error) {
