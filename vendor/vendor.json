@@ -185,112 +185,124 @@
 		{
 			"checksumSHA1": "8VOnoB0DNWtRNMFvfuA8AuYOLik=",
 			"path": "github.com/hashicorp/vault/api",
-			"revision": "47df4acdf1bf52ececf7a0184486a6f73992b959",
-			"revisionTime": "2017-04-27T20:28:33Z",
+			"revision": "9e28b03c9b5c2a420ab5d88200d6a9a2cabf9ee8",
+			"revisionTime": "2017-05-04T01:41:39Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
-			"checksumSHA1": "I5VsKphw1/3jTCbea+aI+rRcj/s=",
+			"checksumSHA1": "E+hZpoAj8e3BEKcCa7IsMv5DXF4=",
 			"path": "github.com/hashicorp/vault/builtin/logical/database/dbplugin",
-			"revision": "47df4acdf1bf52ececf7a0184486a6f73992b959",
-			"revisionTime": "2017-04-27T20:28:33Z",
+			"revision": "9e28b03c9b5c2a420ab5d88200d6a9a2cabf9ee8",
+			"revisionTime": "2017-05-04T01:41:39Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
 			"checksumSHA1": "IeG9kcBwWtNcAWNyipE2TV1O2RM=",
 			"path": "github.com/hashicorp/vault/helper/certutil",
-			"revision": "47df4acdf1bf52ececf7a0184486a6f73992b959",
-			"revisionTime": "2017-04-27T20:28:33Z",
+			"revision": "9e28b03c9b5c2a420ab5d88200d6a9a2cabf9ee8",
+			"revisionTime": "2017-05-04T01:41:39Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
 			"checksumSHA1": "ft77GtqeZEeCXioGpF/s6DlGm/U=",
 			"path": "github.com/hashicorp/vault/helper/compressutil",
-			"revision": "47df4acdf1bf52ececf7a0184486a6f73992b959",
-			"revisionTime": "2017-04-27T20:28:33Z",
+			"revision": "9e28b03c9b5c2a420ab5d88200d6a9a2cabf9ee8",
+			"revisionTime": "2017-05-04T01:41:39Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
 			"checksumSHA1": "fuAZjiabZXVJ7ORLb0vjLOT4+iU=",
 			"path": "github.com/hashicorp/vault/helper/errutil",
-			"revision": "47df4acdf1bf52ececf7a0184486a6f73992b959",
-			"revisionTime": "2017-04-27T20:28:33Z",
+			"revision": "9e28b03c9b5c2a420ab5d88200d6a9a2cabf9ee8",
+			"revisionTime": "2017-05-04T01:41:39Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
 			"checksumSHA1": "yUiSTPf0QUuL2r/81sjuytqBoeQ=",
 			"path": "github.com/hashicorp/vault/helper/jsonutil",
-			"revision": "47df4acdf1bf52ececf7a0184486a6f73992b959",
-			"revisionTime": "2017-04-27T20:28:33Z",
+			"revision": "9e28b03c9b5c2a420ab5d88200d6a9a2cabf9ee8",
+			"revisionTime": "2017-05-04T01:41:39Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
 			"checksumSHA1": "0hby54fDnmZc1vWBF2TUCHCnLdc=",
 			"path": "github.com/hashicorp/vault/helper/mlock",
-			"revision": "47df4acdf1bf52ececf7a0184486a6f73992b959",
-			"revisionTime": "2017-04-27T20:28:33Z",
+			"revision": "9e28b03c9b5c2a420ab5d88200d6a9a2cabf9ee8",
+			"revisionTime": "2017-05-04T01:41:39Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
-			"checksumSHA1": "IEdze50RzQVHfDNwnOSQvlY78qk=",
+			"checksumSHA1": "GGveKvOwScWGZAAnupzpyw+0Jko=",
+			"path": "github.com/hashicorp/vault/helper/parseutil",
+			"revision": "9e28b03c9b5c2a420ab5d88200d6a9a2cabf9ee8",
+			"revisionTime": "2017-05-04T01:41:39Z"
+		},
+		{
+			"checksumSHA1": "13g10K+W3kTbFqlYmIfbC9N+lBM=",
 			"path": "github.com/hashicorp/vault/helper/pluginutil",
-			"revision": "47df4acdf1bf52ececf7a0184486a6f73992b959",
-			"revisionTime": "2017-04-27T20:28:33Z",
+			"revision": "9e28b03c9b5c2a420ab5d88200d6a9a2cabf9ee8",
+			"revisionTime": "2017-05-04T01:41:39Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
 			"checksumSHA1": "NQEHQjdnHmXirpCu96wgBJUKjj8=",
 			"path": "github.com/hashicorp/vault/helper/strutil",
-			"revision": "47df4acdf1bf52ececf7a0184486a6f73992b959",
-			"revisionTime": "2017-04-27T20:28:33Z",
+			"revision": "9e28b03c9b5c2a420ab5d88200d6a9a2cabf9ee8",
+			"revisionTime": "2017-05-04T01:41:39Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
 			"checksumSHA1": "Q21ZzCs4dTSallxpU4a+hpDWhO0=",
 			"path": "github.com/hashicorp/vault/helper/tlsutil",
-			"revision": "47df4acdf1bf52ececf7a0184486a6f73992b959",
-			"revisionTime": "2017-04-27T20:28:33Z",
+			"revision": "9e28b03c9b5c2a420ab5d88200d6a9a2cabf9ee8",
+			"revisionTime": "2017-05-04T01:41:39Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
 			"checksumSHA1": "xnjA2dsx9ewQBbS2QM4L/LFuJO4=",
 			"path": "github.com/hashicorp/vault/helper/wrapping",
-			"revision": "47df4acdf1bf52ececf7a0184486a6f73992b959",
-			"revisionTime": "2017-04-27T20:28:33Z",
+			"revision": "9e28b03c9b5c2a420ab5d88200d6a9a2cabf9ee8",
+			"revisionTime": "2017-05-04T01:41:39Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
-			"checksumSHA1": "C03JLDfRkOnYjRyMRnDNdxr0UBQ=",
+			"checksumSHA1": "ELt3efdO5jr8doeyfHdgV3/r71U=",
+			"path": "github.com/hashicorp/vault/plugins",
+			"revision": "9e28b03c9b5c2a420ab5d88200d6a9a2cabf9ee8",
+			"revisionTime": "2017-05-04T01:41:39Z"
+		},
+		{
+			"checksumSHA1": "BWUgIZG5VPQseyOFYqpGrnZwrLo=",
 			"path": "github.com/hashicorp/vault/plugins/helper/database/connutil",
-			"revision": "47df4acdf1bf52ececf7a0184486a6f73992b959",
-			"revisionTime": "2017-04-27T20:28:33Z",
+			"revision": "9e28b03c9b5c2a420ab5d88200d6a9a2cabf9ee8",
+			"revisionTime": "2017-05-04T01:41:39Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
-			"checksumSHA1": "eCUM1l2jve9VpUboeV300a4D9/o=",
+			"checksumSHA1": "V8aNGUXQn8atLH/aeWJWjD4iqT8=",
 			"path": "github.com/hashicorp/vault/plugins/helper/database/credsutil",
-			"revision": "47df4acdf1bf52ececf7a0184486a6f73992b959",
-			"revisionTime": "2017-04-27T20:28:33Z",
+			"revision": "9e28b03c9b5c2a420ab5d88200d6a9a2cabf9ee8",
+			"revisionTime": "2017-05-04T01:41:39Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},
 		{
 			"checksumSHA1": "kAUwX708ApG6kcHA3aiHjEiBXKM=",
 			"path": "github.com/hashicorp/vault/plugins/helper/database/dbutil",
-			"revision": "47df4acdf1bf52ececf7a0184486a6f73992b959",
-			"revisionTime": "2017-04-27T20:28:33Z",
+			"revision": "9e28b03c9b5c2a420ab5d88200d6a9a2cabf9ee8",
+			"revisionTime": "2017-05-04T01:41:39Z",
 			"version": "=database-refactor",
 			"versionExact": "database-refactor"
 		},

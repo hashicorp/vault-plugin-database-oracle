@@ -2,11 +2,13 @@ package pluginutil
 
 import (
 	"crypto/sha256"
+	"flag"
 	"fmt"
 	"os/exec"
 	"time"
 
 	plugin "github.com/hashicorp/go-plugin"
+	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/helper/wrapping"
 )
 
@@ -19,15 +21,15 @@ type Looker interface {
 // Wrapper interface defines the functions needed by the runner to wrap the
 // metadata needed to run a plugin process. This includes looking up Mlock
 // configuration and wrapping data in a respose wrapped token.
-type Wrapper interface {
+type RunnerUtil interface {
 	ResponseWrapData(data map[string]interface{}, ttl time.Duration, jwt bool) (*wrapping.ResponseWrapInfo, error)
 	MlockEnabled() bool
 }
 
 // LookWrapper defines the functions for both Looker and Wrapper
-type LookWrapper interface {
+type LookRunnerUtil interface {
 	Looker
-	Wrapper
+	RunnerUtil
 }
 
 // PluginRunner defines the metadata needed to run a plugin securely with
@@ -43,22 +45,22 @@ type PluginRunner struct {
 
 // Run takes a wrapper instance, and the go-plugin paramaters and executes a
 // plugin.
-func (r *PluginRunner) Run(wrapper Wrapper, pluginMap map[string]plugin.Plugin, hs plugin.HandshakeConfig, env []string) (*plugin.Client, error) {
+func (r *PluginRunner) Run(wrapper RunnerUtil, pluginMap map[string]plugin.Plugin, hs plugin.HandshakeConfig, env []string) (*plugin.Client, error) {
 	// Get a CA TLS Certificate
-	certBytes, key, err := GenerateCert()
+	certBytes, key, err := generateCert()
 	if err != nil {
 		return nil, err
 	}
 
 	// Use CA to sign a client cert and return a configured TLS config
-	clientTLSConfig, err := CreateClientTLSConfig(certBytes, key)
+	clientTLSConfig, err := createClientTLSConfig(certBytes, key)
 	if err != nil {
 		return nil, err
 	}
 
 	// Use CA to sign a server cert and wrap the values in a response wrapped
 	// token.
-	wrapToken, err := WrapServerConfig(wrapper, certBytes, key)
+	wrapToken, err := wrapServerConfig(wrapper, certBytes, key)
 	if err != nil {
 		return nil, err
 	}
@@ -86,4 +88,43 @@ func (r *PluginRunner) Run(wrapper Wrapper, pluginMap map[string]plugin.Plugin, 
 	})
 
 	return client, nil
+}
+
+type APIClientMeta struct {
+	// These are set by the command line flags.
+	flagCACert     string
+	flagCAPath     string
+	flagClientCert string
+	flagClientKey  string
+	flagInsecure   bool
+}
+
+func (f *APIClientMeta) FlagSet() *flag.FlagSet {
+	fs := flag.NewFlagSet("tls settings", flag.ContinueOnError)
+
+	fs.StringVar(&f.flagCACert, "ca-cert", "", "")
+	fs.StringVar(&f.flagCAPath, "ca-path", "", "")
+	fs.StringVar(&f.flagClientCert, "client-cert", "", "")
+	fs.StringVar(&f.flagClientKey, "client-key", "", "")
+	fs.BoolVar(&f.flagInsecure, "tls-skip-verify", false, "")
+
+	return fs
+}
+
+func (f *APIClientMeta) GetTLSConfig() *api.TLSConfig {
+	// If we need custom TLS configuration, then set it
+	if f.flagCACert != "" || f.flagCAPath != "" || f.flagClientCert != "" || f.flagClientKey != "" || f.flagInsecure {
+		t := &api.TLSConfig{
+			CACert:        f.flagCACert,
+			CAPath:        f.flagCAPath,
+			ClientCert:    f.flagClientCert,
+			ClientKey:     f.flagClientKey,
+			TLSServerName: "",
+			Insecure:      f.flagInsecure,
+		}
+
+		return t
+	}
+
+	return nil
 }

@@ -31,7 +31,7 @@ type Statements struct {
 
 // PluginFactory is used to build plugin database types. It wraps the database
 // object in a logging and metrics middleware.
-func PluginFactory(pluginName string, sys pluginutil.LookWrapper, logger log.Logger) (Database, error) {
+func PluginFactory(pluginName string, sys pluginutil.LookRunnerUtil, logger log.Logger) (Database, error) {
 	// Look for plugin in the plugin catalog
 	pluginRunner, err := sys.LookupPlugin(pluginName)
 	if err != nil {
@@ -73,10 +73,12 @@ func PluginFactory(pluginName string, sys pluginutil.LookWrapper, logger log.Log
 	}
 
 	// Wrap with tracing middleware
-	db = &databaseTracingMiddleware{
-		next:    db,
-		typeStr: typeStr,
-		logger:  logger,
+	if logger.IsTrace() {
+		db = &databaseTracingMiddleware{
+			next:    db,
+			typeStr: typeStr,
+			logger:  logger,
+		}
 	}
 
 	return db, nil

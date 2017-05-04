@@ -10,19 +10,20 @@ import (
 	// Import sql drivers
 	_ "github.com/denisenkom/go-mssqldb"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/hashicorp/vault/helper/parseutil"
 	_ "github.com/lib/pq"
 	"github.com/mitchellh/mapstructure"
 )
 
 // SQLConnectionProducer implements ConnectionProducer and provides a generic producer for most sql databases
 type SQLConnectionProducer struct {
-	ConnectionURL            string `json:"connection_url" structs:"connection_url" mapstructure:"connection_url"`
-	MaxOpenConnections       int    `json:"max_open_connections" structs:"max_open_connections" mapstructure:"max_open_connections"`
-	MaxIdleConnections       int    `json:"max_idle_connections" structs:"max_idle_connections" mapstructure:"max_idle_connections"`
-	MaxConnectionLifetimeRaw string `json:"max_connection_lifetime" structs:"max_connection_lifetime" mapstructure:"max_connection_lifetime"`
+	ConnectionURL            string      `json:"connection_url" structs:"connection_url" mapstructure:"connection_url"`
+	MaxOpenConnections       int         `json:"max_open_connections" structs:"max_open_connections" mapstructure:"max_open_connections"`
+	MaxIdleConnections       int         `json:"max_idle_connections" structs:"max_idle_connections" mapstructure:"max_idle_connections"`
+	MaxConnectionLifetimeRaw interface{} `json:"max_connection_lifetime" structs:"max_connection_lifetime" mapstructure:"max_connection_lifetime"`
 
 	Type                  string
-	MaxConnectionLifetime time.Duration
+	maxConnectionLifetime time.Duration
 	Initialized           bool
 	db                    *sql.DB
 	sync.Mutex
@@ -37,6 +38,10 @@ func (c *SQLConnectionProducer) Initialize(conf map[string]interface{}, verifyCo
 		return err
 	}
 
+	if len(c.ConnectionURL) == 0 {
+		return fmt.Errorf("connection_url cannot be empty")
+	}
+
 	if c.MaxOpenConnections == 0 {
 		c.MaxOpenConnections = 2
 	}
@@ -47,11 +52,11 @@ func (c *SQLConnectionProducer) Initialize(conf map[string]interface{}, verifyCo
 	if c.MaxIdleConnections > c.MaxOpenConnections {
 		c.MaxIdleConnections = c.MaxOpenConnections
 	}
-	if c.MaxConnectionLifetimeRaw == "" {
+	if c.MaxConnectionLifetimeRaw == nil {
 		c.MaxConnectionLifetimeRaw = "0s"
 	}
 
-	c.MaxConnectionLifetime, err = time.ParseDuration(c.MaxConnectionLifetimeRaw)
+	c.maxConnectionLifetime, err = parseutil.ParseDurationSecond(c.MaxConnectionLifetimeRaw)
 	if err != nil {
 		return fmt.Errorf("invalid max_connection_lifetime: %s", err)
 	}
@@ -110,7 +115,7 @@ func (c *SQLConnectionProducer) Connection() (interface{}, error) {
 	// since the request rate shouldn't be high.
 	c.db.SetMaxOpenConns(c.MaxOpenConnections)
 	c.db.SetMaxIdleConns(c.MaxIdleConnections)
-	c.db.SetConnMaxLifetime(c.MaxConnectionLifetime)
+	c.db.SetConnMaxLifetime(c.maxConnectionLifetime)
 
 	return c.db, nil
 }

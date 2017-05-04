@@ -1,26 +1,32 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"os"
 
 	"github.com/gdavison/vault-oracle"
-	"github.com/hashicorp/vault/builtin/logical/database/dbplugin"
+	"github.com/hashicorp/vault/api"
+	"github.com/hashicorp/vault/helper/pluginutil"
+	"github.com/hashicorp/vault/plugins"
 )
 
 func main() {
-	err := Run()
+	apiClientMeta := &pluginutil.APIClientMeta{}
+	flags := apiClientMeta.FlagSet()
+	flags.Parse(os.Args)
+
+	err := Run(apiClientMeta.GetTLSConfig())
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		os.Exit(1)
 	}
 }
 
 // Run instantiates an Oracle object, and runs the RPC server for the plugin
-func Run() error {
+func Run(apiTLSConfig *api.TLSConfig) error {
 	dbType := oracle.New()
 
-	dbplugin.NewPluginServer(dbType)
+	plugins.Serve(dbType, apiTLSConfig)
 
 	return nil
 }
