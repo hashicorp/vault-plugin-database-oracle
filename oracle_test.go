@@ -183,7 +183,44 @@ func TestOracle_RevokeUser(t *testing.T) {
 		t.Fatalf("Could not connect with new credentials: %s", err)
 	}
 
-	// Test default revoke statements
+	err = db.RevokeUser(statements, username)
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	if err := testCredentialsExist(connURL, username, password); err == nil {
+		t.Fatal("Credentials were not revoked")
+	}
+}
+
+func TestOracle_RevokeUserWithCustomStatements(t *testing.T) {
+	cleanup, connURL := prepareOracleTestContainer(t)
+	defer cleanup()
+
+	connectionDetails := map[string]interface{}{
+		"connection_url": connURL,
+	}
+
+	db := New()
+	err := db.Initialize(connectionDetails, true)
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	statements := dbplugin.Statements{
+		CreationStatements: testRole,
+	}
+
+	username, password, err := db.CreateUser(statements, "test", time.Now().Add(2*time.Second))
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	if err = testCredentialsExist(connURL, username, password); err != nil {
+		t.Fatalf("Could not connect with new credentials: %s", err)
+	}
+
+	statements.RevocationStatements = defaultOracleRevocationSQL
 	err = db.RevokeUser(statements, username)
 	if err != nil {
 		t.Fatalf("err: %s", err)
@@ -211,4 +248,10 @@ const testRole = `
 CREATE USER {{name}} IDENTIFIED BY {{password}};
 GRANT CONNECT TO {{name}};
 GRANT CREATE SESSION TO {{name}};
+`
+
+const defaultOracleRevocationSQL = `
+REVOKE CONNECT FROM {{name}};
+REVOKE CREATE SESSION FROM {{name}};
+DROP USER {{name}};
 `

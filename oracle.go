@@ -140,7 +140,37 @@ func (o *Oracle) RevokeUser(statements dbplugin.Statements, username string) err
 		return err
 	}
 
-	// Disconnect the session
+	if err := o.disconnectSession(db, username); err != nil {
+		return err
+	}
+
+	revocationStatements := statements.RevocationStatements
+	if revocationStatements == "" {
+		revocationStatements = revocationSQL
+	}
+
+	// We can't use a transaction here, because Oracle treats DROP USER as a DDL statement, which commits immediately.
+	// Execute each query
+	for _, query := range strutil.ParseArbitraryStringSlice(revocationStatements, ";") {
+		query = strings.TrimSpace(query)
+		if len(query) == 0 {
+			continue
+		}
+
+		stmt, err := db.Prepare(strings.Replace(query, "{{name}}", username, -1))
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
+		if _, err := stmt.Exec(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (o *Oracle) disconnectSession(db *sql.DB, username string) error {
 	disconnectStmt, err := db.Prepare(strings.Replace(sessionQuerySQL, "{{name}}", username, -1))
 	if err != nil {
 		return err
@@ -168,25 +198,6 @@ func (o *Oracle) RevokeUser(statements dbplugin.Statements, username string) err
 			return err
 		}
 	}
-
-	// We can't use a transaction here, because Oracle treats DROP USER as a DDL statement, which commits immediately.
-	// Execute each query
-	for _, query := range strutil.ParseArbitraryStringSlice(revocationSQL, ";") {
-		query = strings.TrimSpace(query)
-		if len(query) == 0 {
-			continue
-		}
-
-		stmt, err := db.Prepare(strings.Replace(query, "{{name}}", username, -1))
-		if err != nil {
-			return err
-		}
-		defer stmt.Close()
-		if _, err := stmt.Exec(); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
