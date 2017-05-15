@@ -341,6 +341,12 @@
 			"revisionTime": "2017-03-22T23:44:13Z"
 		},
 		{
+			"checksumSHA1": "FvEo4kUybyqwTccG3D/c8nU54vQ=",
+			"path": "github.com/mattn/go-oci8",
+			"revision": "5a0b527f3e1d03cc3adac1a77521eccbbe574c25",
+			"revisionTime": "2017-05-09T13:20:02Z"
+		},
+		{
 			"checksumSHA1": "CIK3BBNX3nuUQCmNqTQydNfMNKI=",
 			"path": "github.com/mgutz/ansi",
 			"revision": "9520e82c474b0a04dd04f8a40959027271bab992",
