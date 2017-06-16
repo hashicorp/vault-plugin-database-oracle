@@ -3,7 +3,7 @@ A [Vault](https://www.vaultproject.io) plugin for Oracle
 
 This project uses the database plugin interface introduced in Vault version 0.7.1.
 
-## Installation
+## Build
 
 There is not currently a pre-built binary available.
 
@@ -30,4 +30,18 @@ Libs.private:
 Cflags: -I${includedir}
 ```
 
-Then, `go get github.com/gdavison/vault-oracle` and `go build -o oracle-database-plugin ./plugin` from the project directory.
+Then, `git clone` this repository into your `$GOPATH` and `go build -o oracle-database-plugin ./plugin` from the project directory.
+
+## Installation
+
+The Vault plugin system is documented on the [Vault documentation site](https://www.vaultproject.io/docs/internals/plugins.html).
+
+You will need to define a plugin directory using the `plugin_directory` configuration directive, then place the `oracle-database-plugin` executable generated above in the directory.
+
+Register the plugin using
+
+```
+vault write sys/plugins/catalog/oracle-database-plugin \ 
+    sha_256=<expected SHA256 Hex value of the plugin binary> \
+    command="oracle-database-plugin"
+```
