@@ -8,14 +8,16 @@ import (
 
 	_ "github.com/mattn/go-oci8"
 
+	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/builtin/logical/database/dbplugin"
 	"github.com/hashicorp/vault/helper/strutil"
+	"github.com/hashicorp/vault/plugins"
 	"github.com/hashicorp/vault/plugins/helper/database/connutil"
 	"github.com/hashicorp/vault/plugins/helper/database/credsutil"
 	"github.com/hashicorp/vault/plugins/helper/database/dbutil"
 )
 
-const typeName string = "oci8"
+const oracleTypeName string = "oci8"
 
 const revocationSQL = `
 REVOKE CONNECT FROM {{name}};
@@ -34,7 +36,7 @@ type Oracle struct {
 
 func New() *Oracle {
 	connProducer := &connutil.SQLConnectionProducer{}
-	connProducer.Type = typeName
+	connProducer.Type = oracleTypeName
 
 	credsProducer := &oracleCredentialsProducer{}
 
@@ -46,8 +48,17 @@ func New() *Oracle {
 	return dbType
 }
 
+// Run instantiates an Oracle object, and runs the RPC server for the plugin
+func Run(apiTLSConfig *api.TLSConfig) error {
+	dbType := New()
+
+	plugins.Serve(dbType, apiTLSConfig)
+
+	return nil
+}
+
 func (o *Oracle) Type() (string, error) {
-	return typeName, nil
+	return oracleTypeName, nil
 }
 
 func (o *Oracle) CreateUser(statements dbplugin.Statements, usernamePrefix string, expiration time.Time) (username string, password string, err error) {
@@ -90,7 +101,6 @@ func (o *Oracle) CreateUser(statements dbplugin.Statements, usernamePrefix strin
 	defer func() {
 		tx.Rollback()
 	}()
-	// Return the secret
 
 	// Execute each query
 	for _, query := range strutil.ParseArbitraryStringSlice(statements.CreationStatements, ";") {
@@ -121,12 +131,12 @@ func (o *Oracle) CreateUser(statements dbplugin.Statements, usernamePrefix strin
 
 	}
 
+	// Return the secret
 	return username, password, nil
 }
 
-// NOOP
 func (o *Oracle) RenewUser(statements dbplugin.Statements, username string, expiration time.Time) error {
-	return nil
+	return nil // NOOP
 }
 
 func (o *Oracle) RevokeUser(statements dbplugin.Statements, username string) error {
