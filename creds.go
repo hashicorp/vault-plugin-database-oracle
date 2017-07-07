@@ -1,33 +1,25 @@
 package oracle
 
 import (
-	"fmt"
 	"time"
 
 	regen "github.com/gdavison/crypto-goregen"
+	"github.com/hashicorp/vault/builtin/logical/database/dbplugin"
+	"github.com/hashicorp/vault/plugins/helper/database/credsutil"
+	"strings"
 )
-
-const oracleUsernameLength = 30
-const oracleDisplayNameMaxLength = 10
-const oraclePasswordLength = 30
 
 // oracleCredentialsProducer implements CredentialsProducer.
 type oracleCredentialsProducer struct {
+	credsutil.SQLCredentialsProducer
 }
 
-func (ocp *oracleCredentialsProducer) GenerateUsername(displayName string) (string, error) {
-	if len(displayName) > oracleDisplayNameMaxLength {
-		displayName = displayName[:oracleDisplayNameMaxLength]
-	}
-	displayNameLen := len(displayName)
-	randomLen := oracleUsernameLength - 1 - displayNameLen
-	usernamePattern := fmt.Sprintf("%s_[_[:lower:][:digit:]]{%d}", displayName, randomLen)
-	username, err := regen.Generate(usernamePattern)
-	if err != nil {
+func (ocp *oracleCredentialsProducer) GenerateUsername(config dbplugin.UsernameConfig) (string, error) {
+	if username, err := ocp.SQLCredentialsProducer.GenerateUsername(config); err != nil {
 		return "", err
+	} else {
+		return strings.ToLower(username), nil
 	}
-
-	return username, nil
 }
 
 // Oracle passwords: https://asktom.oracle.com/pls/apex/f?p=100:11:0::::P11_QUESTION_ID:595223460734

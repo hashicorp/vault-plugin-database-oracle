@@ -19,6 +19,10 @@ import (
 
 const oracleTypeName string = "oci8"
 
+const oracleUsernameLength = 30
+const oracleDisplayNameMaxLength = 8
+const oraclePasswordLength = 30
+
 const revocationSQL = `
 REVOKE CONNECT FROM {{name}};
 REVOKE CREATE SESSION FROM {{name}};
@@ -38,7 +42,14 @@ func New() *Oracle {
 	connProducer := &connutil.SQLConnectionProducer{}
 	connProducer.Type = oracleTypeName
 
-	credsProducer := &oracleCredentialsProducer{}
+	credsProducer := &oracleCredentialsProducer{
+		credsutil.SQLCredentialsProducer{
+			DisplayNameLen: oracleDisplayNameMaxLength,
+			RoleNameLen:    oracleDisplayNameMaxLength,
+			UsernameLen:    oracleUsernameLength,
+			Separator:      "_",
+		},
+	}
 
 	dbType := &Oracle{
 		ConnectionProducer:  connProducer,
@@ -61,7 +72,7 @@ func (o *Oracle) Type() (string, error) {
 	return oracleTypeName, nil
 }
 
-func (o *Oracle) CreateUser(statements dbplugin.Statements, usernamePrefix string, expiration time.Time) (username string, password string, err error) {
+func (o *Oracle) CreateUser(statements dbplugin.Statements, usernameConfig dbplugin.UsernameConfig, expiration time.Time) (username string, password string, err error) {
 	if statements.CreationStatements == "" {
 		return "", "", dbutil.ErrEmptyCreationStatement
 	}
@@ -70,7 +81,7 @@ func (o *Oracle) CreateUser(statements dbplugin.Statements, usernamePrefix strin
 	o.Lock()
 	defer o.Unlock()
 
-	username, err = o.GenerateUsername(usernamePrefix)
+	username, err = o.GenerateUsername(usernameConfig)
 	if err != nil {
 		return "", "", err
 	}

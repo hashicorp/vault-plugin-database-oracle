@@ -96,8 +96,13 @@ func TestOracle_CreateUser(t *testing.T) {
 		t.Fatalf("err: %s", err)
 	}
 
+	usernameConfig := dbplugin.UsernameConfig{
+		DisplayName: "test",
+		RoleName:    "test",
+	}
+
 	// Test with no configured Creation Statement
-	_, _, err = db.CreateUser(dbplugin.Statements{}, "test", time.Now().Add(time.Minute))
+	_, _, err = db.CreateUser(dbplugin.Statements{}, usernameConfig, time.Now().Add(time.Minute))
 	if err == nil {
 		t.Fatal("Expected error when no creation statement is provided")
 	}
@@ -106,7 +111,7 @@ func TestOracle_CreateUser(t *testing.T) {
 		CreationStatements: testRole,
 	}
 
-	username, password, err := db.CreateUser(statements, "test", time.Now().Add(time.Minute))
+	username, password, err := db.CreateUser(statements, usernameConfig, time.Now().Add(time.Minute))
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
@@ -130,11 +135,16 @@ func TestOracle_RenewUser(t *testing.T) {
 		t.Fatalf("err: %s", err)
 	}
 
+	usernameConfig := dbplugin.UsernameConfig{
+		DisplayName: "test",
+		RoleName:    "test",
+	}
+
 	statements := dbplugin.Statements{
 		CreationStatements: testRole,
 	}
 
-	username, password, err := db.CreateUser(statements, "test", time.Now().Add(2*time.Second))
+	username, password, err := db.CreateUser(statements, usernameConfig, time.Now().Add(2*time.Second))
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
@@ -170,11 +180,16 @@ func TestOracle_RevokeUser(t *testing.T) {
 		t.Fatalf("err: %s", err)
 	}
 
+	usernameConfig := dbplugin.UsernameConfig{
+		DisplayName: "test",
+		RoleName:    "test",
+	}
+
 	statements := dbplugin.Statements{
 		CreationStatements: testRole,
 	}
 
-	username, password, err := db.CreateUser(statements, "test", time.Now().Add(2*time.Second))
+	username, password, err := db.CreateUser(statements, usernameConfig, time.Now().Add(2*time.Second))
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
@@ -207,11 +222,16 @@ func TestOracle_RevokeUserWithCustomStatements(t *testing.T) {
 		t.Fatalf("err: %s", err)
 	}
 
+	usernameConfig := dbplugin.UsernameConfig{
+		DisplayName: "test",
+		RoleName:    "test",
+	}
+
 	statements := dbplugin.Statements{
 		CreationStatements: testRole,
 	}
 
-	username, password, err := db.CreateUser(statements, "test", time.Now().Add(2*time.Second))
+	username, password, err := db.CreateUser(statements, usernameConfig, time.Now().Add(2*time.Second))
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
