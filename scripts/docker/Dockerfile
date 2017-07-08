@@ -24,6 +24,7 @@ RUN \
     clang llvm-dev             \
     pkg-config           \
     make xz-utils wget git mercurial bzr            \
+    libaio1 \
     --no-install-recommends
 
 # Fix any stock package issues

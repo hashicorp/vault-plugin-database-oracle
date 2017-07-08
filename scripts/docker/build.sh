@@ -14,13 +14,6 @@
 #   TARGETS        - Comma separated list of build targets to compile for
 #   EXT_GOPATH     - GOPATH elements mounted from the host filesystem
 
-# Define a function that figures out the binary extension
-function extension {
-  if [ "$1" == "windows" ]; then
-    echo ".exe"
-  fi
-}
-
 export GOPATH=$GOPATH:`pwd`
 
 echo "GOPATH=$GOPATH"
@@ -36,6 +29,13 @@ for TARGET in $TARGETS; do
   XGOOS=`echo $TARGET | cut -d '/' -f 1`
   XGOARCH=`echo $TARGET | cut -d '/' -f 2`
 
+  # Check and build for Linux targets
+  if ([ $XGOOS == "." ] || [ $XGOOS == "linux" ]) && ([ $XGOARCH == "." ] || [ $XGOARCH == "amd64" ]); then
+    echo "Compiling for linux/amd64..."
+    export PKG_CONFIG_PATH=/cgo/linux_amd64
+    GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -o "/build/linux_amd64/vault-plugin-database-oracle" ./plugin
+  fi
+  
   # Check and build for OSX targets
   if [ $XGOOS == "." ] || [[ $XGOOS == darwin* ]]; then
     # Split the platform version and configure the deployment target
@@ -49,12 +49,12 @@ for TARGET in $TARGETS; do
     if [ $XGOARCH == "." ] || [ $XGOARCH == "amd64" ]; then
       echo "Compiling for darwin/amd64..."
       export PKG_CONFIG_PATH=/cgo/darwin_amd64
-      CC=o64-clang CXX=o64-clang++ GOOS=darwin GOARCH=amd64 CGO_ENABLED=1 go build -o "/build/darwin_amd64/vault-plugin-database-oracle`extension darwin`" ./plugin
+      CC=o64-clang CXX=o64-clang++ GOOS=darwin GOARCH=amd64 CGO_ENABLED=1 go build -o "/build/darwin_amd64/vault-plugin-database-oracle" ./plugin
     fi
     if [ $XGOARCH == "." ] || [ $XGOARCH == "386" ]; then
       echo "Compiling for darwin/386..."
       export PKG_CONFIG_PATH=/cgo/darwin_386
-      CC=o32-clang CXX=o32-clang++ GOOS=darwin GOARCH=386 CGO_ENABLED=1 go build -o "/build/darwin_386/vault-plugin-database-oracle`extension darwin`" ./plugin
+      CC=o32-clang CXX=o32-clang++ GOOS=darwin GOARCH=386 CGO_ENABLED=1 go build -o "/build/darwin_386/vault-plugin-database-oracle" ./plugin
     fi
     # Remove any automatically injected deployment target vars
     unset MACOSX_DEPLOYMENT_TARGET
