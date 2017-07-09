@@ -19,12 +19,14 @@ RUN  chmod +x $FETCH
 
 # Make sure apt-get is up to date and dependent packages are installed
 RUN \
+  dpkg --add-architecture i386 && \
   apt-get update && \
   apt-get install -y automake autogen build-essential ca-certificates \
     clang llvm-dev             \
+    gcc-multilib \
     pkg-config           \
     make xz-utils wget git mercurial bzr            \
-    libaio1 \
+    libaio1 libaio1:i386 \
     --no-install-recommends
 
 # Fix any stock package issues

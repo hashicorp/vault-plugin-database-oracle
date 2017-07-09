@@ -35,6 +35,11 @@ for TARGET in $TARGETS; do
     export PKG_CONFIG_PATH=/cgo/linux_amd64
     GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -o "/build/linux_amd64/vault-plugin-database-oracle" ./plugin
   fi
+  if ([ $XGOOS == "." ] || [ $XGOOS == "linux" ]) && ([ $XGOARCH == "." ] || [ $XGOARCH == "386" ]); then
+    echo "Compiling for linux/386..."
+    export PKG_CONFIG_PATH=/cgo/linux_386
+    GOOS=linux GOARCH=386 CGO_ENABLED=1 go build -o "/build/linux_386/vault-plugin-database-oracle" ./plugin
+  fi
   
   # Check and build for OSX targets
   if [ $XGOOS == "." ] || [[ $XGOOS == darwin* ]]; then

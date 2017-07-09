@@ -3,6 +3,15 @@ A [Vault](https://www.vaultproject.io) plugin for Oracle
 
 This project uses the database plugin interface introduced in Vault version 0.7.1.
 
+## Platforms
+
+The goal is to support all platforms supported by both Vault and the Oracle Instant Client libraries
+
+* macOS 64-bit and 32-bit
+* Linux 64-bit and 32-bit
+* Windows 64-bit and 32-bit
+* Solaris 64-bit
+
 ## Build
 
 There is not currently a pre-built binary available.

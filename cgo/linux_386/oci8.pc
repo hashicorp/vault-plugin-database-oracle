@@ -1,0 +1,13 @@
+prefix=/cgo
+
+version=11.2
+
+libdir=${prefix}/linux_386/lib
+includedir=${prefix}/include
+
+Name: oci8
+Description: Oracle database engine
+Version: ${version}
+Libs: -L${libdir} -lclntsh -lnnz11
+Libs.private:
+Cflags: -I${includedir}
