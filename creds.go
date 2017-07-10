@@ -18,6 +18,8 @@ func (ocp *oracleCredentialsProducer) GenerateUsername(config dbplugin.UsernameC
 	if username, err := ocp.SQLCredentialsProducer.GenerateUsername(config); err != nil {
 		return "", err
 	} else {
+		username = strings.Replace(username, "-", "_", -1)
+		username = strings.Replace(username, ".", "_", -1)
 		return strings.ToLower(username), nil
 	}
 }

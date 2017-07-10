@@ -44,6 +44,54 @@ func TestUsernameShouldMatchOracleRequirements(t *testing.T) {
 	}
 }
 
+func TestShouldReplaceHyphenInDisplayNameAndRoleName(t *testing.T) {
+	credsProducer := &oracleCredentialsProducer{
+		credsutil.SQLCredentialsProducer{
+			DisplayNameLen: oracleDisplayNameMaxLength,
+			RoleNameLen:    oracleDisplayNameMaxLength,
+			UsernameLen:    oracleUsernameLength,
+			Separator:      "_",
+		},
+	}
+	usernameConfig := dbplugin.UsernameConfig{
+		DisplayName: "a-b-c",
+		RoleName:    "d-e-f",
+	}
+	if username, err := credsProducer.GenerateUsername(usernameConfig); err != nil {
+		t.Errorf("err: %s", err)
+	} else {
+		if match, err := regexp.MatchString("a_b_c_d_e_f", username); err != nil {
+			t.Errorf("err: %s", err)
+		} else if !match {
+			t.Errorf("does not match expected name. was '%s', expected to match '%s'", username, "a_b_c_d_e_f")
+		}
+	}
+}
+
+func TestShouldReplaceDotInDisplayNameAndRoleName(t *testing.T) {
+	credsProducer := &oracleCredentialsProducer{
+		credsutil.SQLCredentialsProducer{
+			DisplayNameLen: oracleDisplayNameMaxLength,
+			RoleNameLen:    oracleDisplayNameMaxLength,
+			UsernameLen:    oracleUsernameLength,
+			Separator:      "_",
+		},
+	}
+	usernameConfig := dbplugin.UsernameConfig{
+		DisplayName: "a.b.c",
+		RoleName:    "d.e.f",
+	}
+	if username, err := credsProducer.GenerateUsername(usernameConfig); err != nil {
+		t.Errorf("err: %s", err)
+	} else {
+		if match, err := regexp.MatchString("a_b_c_d_e_f", username); err != nil {
+			t.Errorf("err: %s", err)
+		} else if !match {
+			t.Errorf("does not match expected name. was '%s', expected to match '%s'", username, "a_b_c_d_e_f")
+		}
+	}
+}
+
 type testPassword string
 
 func (tp testPassword) Generate(rand *rand.Rand, size int) reflect.Value {
