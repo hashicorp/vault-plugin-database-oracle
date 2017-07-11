@@ -363,6 +363,13 @@ import (
 
 const blobBufSize = 4000
 
+/**
+ORA-03114: Not Connected to Oracle
+ORA-01012: Not logged on
+ORA-03113: end-of-file on communication channel
+*/
+var badConnCodes = []string{"ORA-03114", "ORA-01012", "ORA-03113"}
+
 type DSN struct {
 	Connect              string
 	Username             string
@@ -520,6 +527,11 @@ type namedValue struct {
 	Value   driver.Value
 }
 
+type outValue struct {
+	Dest interface{}
+	In   bool
+}
+
 func (c *OCI8Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
 	list := make([]namedValue, len(args))
 	for i, v := range args {
@@ -544,6 +556,20 @@ func (c *OCI8Conn) exec(ctx context.Context, query string, args []namedValue) (d
 	return res, nil
 }
 
+/*
+FIXME:
+Queryer is disabled because of incresing cursor numbers.
+See https://github.com/mattn/go-oci8/issues/151
+OCIStmtExecute doesn't return anything to close resource.
+This mean that OCI8Rows.Close can't close statement handle. For example,
+prepared statement is called twice like below.
+
+    stmt, _ := db.Prepare("...")
+    stmt.QueryRow().Scan(&x)
+    stmt.QueryRow().Scan(&x)
+
+If OCI8Rows close handle of statement, this fails.
+
 // Query implements Queryer.
 func (c *OCI8Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
 	list := make([]namedValue, len(args))
@@ -560,6 +586,7 @@ func (c *OCI8Conn) Query(query string, args []driver.Value) (driver.Rows, error)
 	rows.(*OCI8Rows).cls = true
 	return rows, err
 }
+*/
 
 func (c *OCI8Conn) query(ctx context.Context, query string, args []namedValue) (driver.Rows, error) {
 	s, err := c.prepare(ctx, query)
@@ -708,6 +735,7 @@ type OCI8Stmt struct {
 	closed bool
 	bp     **C.OCIBind
 	defp   **C.OCIDefine
+	pbind  []oci8bind //bind params
 }
 
 func (c *OCI8Conn) Prepare(query string) (driver.Stmt, error) {
@@ -759,6 +787,7 @@ func (s *OCI8Stmt) Close() error {
 		s.s,
 		C.OCI_HTYPE_STMT)
 	s.s = nil
+	s.pbind = nil
 	return nil
 }
 
@@ -789,33 +818,93 @@ func freeBoundParameters(boundParameters []oci8bind) {
 			default:
 				C.free(col.pbuf)
 			}
+			col.pbuf = nil
 		}
 	}
 }
 
-func (s *OCI8Stmt) bind(args []namedValue) (boundParameters []oci8bind, err error) {
+func getInt64(p unsafe.Pointer) int64 {
+	return int64(*(*C.sb8)(p))
+}
+
+func outputBoundParameters(boundParameters []oci8bind) {
+	for _, col := range boundParameters {
+		if col.pbuf != nil {
+			switch v := col.out.(type) {
+			case *string:
+				*v = C.GoString((*C.char)(col.pbuf))
+			case *int:
+				*v = int(getInt64(col.pbuf))
+			case *int64:
+				*v = getInt64(col.pbuf)
+			case *int32:
+				*v = int32(getInt64(col.pbuf))
+			case *int16:
+				*v = int16(getInt64(col.pbuf))
+			case *int8:
+				*v = int8(getInt64(col.pbuf))
+
+			case *float64:
+
+				buf := (*[1 << 30]byte)(col.pbuf)[0:8]
+				f := uint64(buf[7])
+				f |= uint64(buf[6]) << 8
+				f |= uint64(buf[5]) << 16
+				f |= uint64(buf[4]) << 24
+				f |= uint64(buf[3]) << 32
+				f |= uint64(buf[2]) << 40
+				f |= uint64(buf[1]) << 48
+				f |= uint64(buf[0]) << 56
+
+				// Don't know why bits are inverted that way, but it works
+				if buf[0]&0x80 == 0 {
+					f ^= 0xffffffffffffffff
+				} else {
+					f &= 0x7fffffffffffffff
+				}
+
+				*v = math.Float64frombits(f)
+
+			case *bool:
+				buf := (*[1 << 30]byte)(col.pbuf)[0:1]
+				*v = buf[0] != 0
+			}
+		}
+	}
+}
+
+func (s *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 	if len(args) == 0 {
 		return nil, nil
 	}
 
 	var (
-		dty   C.ub2
-		cdata *C.char
-		clen  C.sb4
+		boundParameters []oci8bind
+		err             error
 	)
 	*s.bp = nil
 	for i, uv := range args {
+		var sbind oci8bind
 
-		switch v := uv.Value.(type) {
+		vv := uv.Value
+		if out, ok := vv.(outValue); ok {
+			sbind.out = out.Dest
+			vv, err = driver.DefaultParameterConverter.ConvertValue(out.Dest)
+			if err != nil {
+				defer freeBoundParameters(boundParameters)
+				return nil, err
+			}
+		}
+
+		switch v := vv.(type) {
 		case nil:
-			dty = C.SQLT_STR
-			cdata = nil
-			clen = 0
+			sbind.kind = C.SQLT_STR
+			sbind.pbuf = nil
+			sbind.clen = 0
 		case []byte:
-			dty = C.SQLT_BIN
-			cdata = CByte(v)
-			clen = C.sb4(len(v))
-			boundParameters = append(boundParameters, oci8bind{dty, unsafe.Pointer(cdata)})
+			sbind.kind = C.SQLT_BIN
+			sbind.pbuf = unsafe.Pointer(CByte(v))
+			sbind.clen = C.sb4(len(v))
 
 		case float64:
 			fb := math.Float64bits(v)
@@ -824,10 +913,9 @@ func (s *OCI8Stmt) bind(args []namedValue) (boundParameters []oci8bind, err erro
 			} else {
 				fb |= 0x8000000000000000
 			}
-			dty = C.SQLT_IBDOUBLE
-			cdata = CByte([]byte{byte(fb >> 56), byte(fb >> 48), byte(fb >> 40), byte(fb >> 32), byte(fb >> 24), byte(fb >> 16), byte(fb >> 8), byte(fb)})
-			clen = 8
-			boundParameters = append(boundParameters, oci8bind{dty, unsafe.Pointer(cdata)})
+			sbind.kind = C.SQLT_IBDOUBLE
+			sbind.pbuf = unsafe.Pointer(CByte([]byte{byte(fb >> 56), byte(fb >> 48), byte(fb >> 40), byte(fb >> 32), byte(fb >> 24), byte(fb >> 16), byte(fb >> 8), byte(fb)}))
+			sbind.clen = 8
 
 		case time.Time:
 
@@ -848,13 +936,11 @@ func (s *OCI8Stmt) bind(args []namedValue) (boundParameters []oci8bind, err erro
 				defer freeBoundParameters(boundParameters)
 				return nil, ociGetError(ret.rv, s.c.err)
 			} else {
-				dty = C.SQLT_TIMESTAMP_TZ
-				clen = C.sb4(unsafe.Sizeof(pt))
+				sbind.kind = C.SQLT_TIMESTAMP_TZ
+				sbind.clen = C.sb4(unsafe.Sizeof(pt))
 				pt = ret.extra
 				*(*unsafe.Pointer)(ret.extra) = ret.ptr
 				zp = unsafe.Pointer(uintptr(ret.extra) + unsafe.Sizeof(unsafe.Pointer(nil)))
-				boundParameters = append(boundParameters, oci8bind{dty, pt})
-
 			}
 
 			tryagain := false
@@ -923,18 +1009,18 @@ func (s *OCI8Stmt) bind(args []namedValue) (boundParameters []oci8bind, err erro
 				}
 			}
 
-			cdata = (*C.char)(pt)
+			sbind.pbuf = unsafe.Pointer((*C.char)(pt))
 
 		case string:
-			dty = C.SQLT_AFC // don't trim strings !!!
-			cdata = C.CString(v)
-			clen = C.sb4(len(v))
-			boundParameters = append(boundParameters, oci8bind{dty, unsafe.Pointer(cdata)})
+			sbind.kind = C.SQLT_AFC // don't trim strings !!!
+			sbind.pbuf = unsafe.Pointer(C.CString(v))
+			sbind.clen = C.sb4(len(v))
+
 		case int64:
-			dty = C.SQLT_INT
-			clen = C.sb4(8) // not tested on i386. may only work on amd64
-			cdata = (*C.char)(C.malloc(8))
-			buf := (*[1 << 30]byte)(unsafe.Pointer(cdata))[0:8]
+			sbind.kind = C.SQLT_INT
+			sbind.clen = C.sb4(8) // not tested on i386. may only work on amd64
+			sbind.pbuf = unsafe.Pointer((*C.char)(C.malloc(8)))
+			buf := (*[1 << 30]byte)(sbind.pbuf)[0:8]
 			buf[0] = byte(v & 0x0ff)
 			buf[1] = byte(v >> 8 & 0x0ff)
 			buf[2] = byte(v >> 16 & 0x0ff)
@@ -943,25 +1029,26 @@ func (s *OCI8Stmt) bind(args []namedValue) (boundParameters []oci8bind, err erro
 			buf[5] = byte(v >> 40 & 0x0ff)
 			buf[6] = byte(v >> 48 & 0x0ff)
 			buf[7] = byte(v >> 56 & 0x0ff)
-			boundParameters = append(boundParameters, oci8bind{dty, unsafe.Pointer(cdata)})
 
 		case bool: // oracle dont have bool, handle as 0/1
-			dty = C.SQLT_INT
-			clen = C.sb4(1)
-			cdata = (*C.char)(C.malloc(10))
+			sbind.kind = C.SQLT_INT
+			sbind.clen = C.sb4(1)
+			sbind.pbuf = unsafe.Pointer((*C.char)(C.malloc(8)))
 			if v {
-				*cdata = 1
+				(*[1]byte)(sbind.pbuf)[0] = 1
 			} else {
-				*cdata = 0
+				(*[1]byte)(sbind.pbuf)[0] = 0
 			}
-			boundParameters = append(boundParameters, oci8bind{dty, unsafe.Pointer(cdata)})
 
 		default:
-			dty = C.SQLT_CHR
-			d := fmt.Sprintf("%v", v)
-			clen = C.sb4(len(d))
-			cdata = C.CString(d)
-			boundParameters = append(boundParameters, oci8bind{dty, unsafe.Pointer(cdata)})
+			if sbind.out != nil {
+				sbind.kind = C.SQLT_STR
+			} else {
+				sbind.kind = C.SQLT_CHR
+				d := fmt.Sprintf("%v", v)
+				sbind.clen = C.sb4(len(d))
+				sbind.pbuf = unsafe.Pointer(C.CString(d))
+			}
 		}
 
 		if uv.Name != "" {
@@ -974,9 +1061,9 @@ func (s *OCI8Stmt) bind(args []namedValue) (boundParameters []oci8bind, err erro
 				(*C.OCIError)(s.c.err),
 				(*C.OraText)(unsafe.Pointer(cname)),
 				C.sb4(len(name)),
-				unsafe.Pointer(cdata),
-				clen,
-				dty,
+				unsafe.Pointer(sbind.pbuf),
+				sbind.clen,
+				sbind.kind,
 				nil,
 				nil,
 				nil,
@@ -990,19 +1077,20 @@ func (s *OCI8Stmt) bind(args []namedValue) (boundParameters []oci8bind, err erro
 				s.bp,
 				(*C.OCIError)(s.c.err),
 				C.ub4(i+1),
-				unsafe.Pointer(cdata),
-				clen,
-				dty,
+				unsafe.Pointer(sbind.pbuf),
+				sbind.clen,
+				sbind.kind,
 				nil,
 				nil,
 				nil,
 				0,
 				nil,
 				C.OCI_DEFAULT); rv != C.OCI_SUCCESS {
-				defer freeBoundParameters(boundParameters)
+				defer freeBoundParameters(s.pbind)
 				return nil, ociGetError(rv, s.c.err)
 			}
 		}
+		boundParameters = append(boundParameters, sbind)
 	}
 	return boundParameters, nil
 }
@@ -1106,11 +1194,6 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (driver.Rows, e
 		} else {
 			lp = lpr.num
 		}
-		/*
-			var (
-				defp *C.OCIDefine
-			)
-		*/
 		*s.defp = nil
 		switch tp {
 
@@ -1137,23 +1220,9 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (driver.Rows, e
 			oci8cols[i].pbuf = C.malloc(8)
 
 		case C.SQLT_LNG:
-			// allocate +io buffers + ub4
-			size := int(unsafe.Sizeof(unsafe.Pointer(nil)) + unsafe.Sizeof(C.ub4(0)))
-			if oci8cols[i].size < blobBufSize {
-				size += blobBufSize
-			} else {
-				size += oci8cols[i].size
-			}
-			if ret := C.WrapOCIDescriptorAlloc(s.c.env, C.OCI_DTYPE_LOB, C.size_t(size)); ret.rv != C.OCI_SUCCESS {
-				return nil, ociGetError(ret.rv, s.c.err)
-			} else {
-
-				oci8cols[i].kind = tp
-				oci8cols[i].size = size
-				oci8cols[i].pbuf = ret.extra
-				*(*unsafe.Pointer)(ret.extra) = ret.ptr
-
-			}
+			oci8cols[i].kind = C.SQLT_BIN
+			oci8cols[i].size = 2000
+			oci8cols[i].pbuf = C.malloc(C.size_t(oci8cols[i].size))
 
 		case C.SQLT_CLOB, C.SQLT_BLOB:
 			// allocate +io buffers + ub4
@@ -1384,6 +1453,7 @@ func (s *OCI8Stmt) exec(ctx context.Context, args []namedValue) (r driver.Result
 	if n > 0 {
 		id, ei = s.lastInsertId()
 	}
+	outputBoundParameters(fbp)
 	return &OCI8Result{s: s, n: n, errn: en, id: id, errid: ei}, nil
 }
 
@@ -1399,6 +1469,8 @@ type oci8col struct {
 type oci8bind struct {
 	kind C.ub2
 	pbuf unsafe.Pointer
+	clen C.sb4
+	out  interface{} // original binded data type
 }
 
 type OCI8Rows struct {
@@ -1444,6 +1516,7 @@ func (rc *OCI8Rows) Close() error {
 		default:
 			C.free(col.pbuf)
 		}
+		col.pbuf = nil
 	}
 	return nil
 }
@@ -1486,7 +1559,7 @@ func (rc *OCI8Rows) Next(dest []driver.Value) (err error) {
 
 		switch rc.cols[i].kind {
 		case C.SQLT_DAT: // for test, date are return as timestamp
-			buf := (*[1 << 30]byte)(unsafe.Pointer(rc.cols[i].pbuf))[0:*rc.cols[i].rlen]
+			buf := (*[1 << 30]byte)(rc.cols[i].pbuf)[0:*rc.cols[i].rlen]
 			// TODO: Handle BCE dates (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#438305)
 			// TODO: Handle timezones (http://docs.oracle.com/cd/B12037_01/appdev.101/b10779/oci03typ.htm#443601)
 			dest[i] = time.Date(
@@ -1673,10 +1746,23 @@ func (rc *OCI8Rows) Next(dest []driver.Value) (err error) {
 func ociGetErrorS(err unsafe.Pointer) error {
 	rv := C.WrapOCIErrorGet((*C.OCIError)(err))
 	s := C.GoString(&rv.err[0])
-	if len(s) > 8 && (s[0:9] == "ORA-03114" || s[0:9] == "ORA-01012") {
+	if isBadConnection(s) {
 		return driver.ErrBadConn
 	}
 	return errors.New(s)
+}
+
+func isBadConnection(error string) bool {
+	if len(error) <= 8 {
+		return false
+	}
+	errorCode := error[0:9]
+	for _, badConnCode := range badConnCodes {
+		if badConnCode == errorCode {
+			return true
+		}
+	}
+	return false
 }
 
 func ociGetError(rv C.sword, err unsafe.Pointer) error {
