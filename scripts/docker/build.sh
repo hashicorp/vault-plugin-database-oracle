@@ -40,13 +40,44 @@ for TARGET in $TARGETS; do
     export PKG_CONFIG_PATH=/cgo/linux_386
     GOOS=linux GOARCH=386 CGO_ENABLED=1 go build -o "/build/linux_386/vault-plugin-database-oracle" ./plugin
   fi
+
+  # Check and build for Windows targets
+  if [ $XGOOS == "." ] || [[ $XGOOS == windows* ]]; then
+    # Split the platform version and configure the Windows NT version
+    PLATFORM=`echo $XGOOS | cut -d '-' -f 2`
+    if [ "$PLATFORM" == "" ] || [ "$PLATFORM" == "." ] || [ "$PLATFORM" == "windows" ]; then
+      # Minimum supported version for Go 1.8 is Windows 7/Windows Server 2008R2: https://github.com/golang/go/wiki/MinimumRequirements
+      # Which is 6.1 (https://msdn.microsoft.com/en-ca/library/windows/desktop/ms724832(v=vs.85).aspx)
+      PLATFORM=6.1 
+    fi
+  
+    MAJOR=`echo $PLATFORM | cut -d '.' -f 1`
+    if [ "${PLATFORM/.}" != "$PLATFORM" ] ; then
+      MINOR=`echo $PLATFORM | cut -d '.' -f 2`
+    fi
+    CGO_NTDEF="-D_WIN32_WINNT=0x`printf "%02d" $MAJOR``printf "%02d" $MINOR`"
+  
+    # Build the requested windows binaries
+    if [ $XGOARCH == "." ] || [ $XGOARCH == "amd64" ]; then
+      echo "Compiling for windows/amd64..."
+      export PKG_CONFIG_PATH=/cgo/windows_amd64:/usr/x86_64-w64-mingw32/lib/pkgconfig
+  
+      CC=x86_64-w64-mingw32-gcc-posix CXX=x86_64-w64-mingw32-g++-posix GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CGO_CFLAGS="$CGO_NTDEF" CGO_CXXFLAGS="$CGO_NTDEF" go build -o "/build/windows_amd64/vault-plugin-database-oracle.exe" ./plugin
+    fi
+    if [ $XGOARCH == "." ] || [ $XGOARCH == "386" ]; then
+      echo "Compiling for windows/386..."
+      export PKG_CONFIG_PATH=/cgo/windows_386:/usr/i686-w64-mingw32/lib/pkgconfig
+  
+      CC=i686-w64-mingw32-gcc-posix CXX=i686-w64-mingw32-g++-posix GOOS=windows GOARCH=386 CGO_ENABLED=1 CGO_CFLAGS="$CGO_NTDEF" CGO_CXXFLAGS="$CGO_NTDEF" go build -o "/build/windows_386/vault-plugin-database-oracle.exe" ./plugin
+    fi
+  fi
   
   # Check and build for OSX targets
   if [ $XGOOS == "." ] || [[ $XGOOS == darwin* ]]; then
     # Split the platform version and configure the deployment target
     PLATFORM=`echo $XGOOS | cut -d '-' -f 2`
     if [ "$PLATFORM" == "" ] || [ "$PLATFORM" == "." ] || [ "$PLATFORM" == "darwin" ]; then
-      PLATFORM=10.8 # Minimum supported version go Go 1.8: https://github.com/golang/go/wiki/Darwin
+      PLATFORM=10.8 # Minimum supported version for Go 1.8: https://github.com/golang/go/wiki/Darwin
     fi
     export MACOSX_DEPLOYMENT_TARGET=$PLATFORM
 

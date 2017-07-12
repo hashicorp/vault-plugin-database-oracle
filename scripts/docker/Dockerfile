@@ -22,8 +22,7 @@ RUN \
   dpkg --add-architecture i386 && \
   apt-get update && \
   apt-get install -y automake autogen build-essential ca-certificates \
-    clang llvm-dev             \
-    gcc-multilib \
+    gcc-multilib gcc-mingw-w64 g++-mingw-w64 clang llvm-dev             \
     pkg-config           \
     make xz-utils wget git mercurial bzr            \
     libaio1 libaio1:i386 \
@@ -65,11 +64,6 @@ RUN \
   export ROOT_DIST_SHA=1862f4c3d3907e59b04a757cfda0ea7aa9ef39274af99a784f5be843c80c6772 && \
   \
   $BOOTSTRAP_PURE
-
-## Inject the C dependency cross compiler
-#ADD build_deps.sh /build_deps.sh
-#ENV BUILD_DEPS /build_deps.sh
-#RUN chmod +x $BUILD_DEPS
 
 # Inject the container entry point, the build script
 ADD build.sh /build.sh
