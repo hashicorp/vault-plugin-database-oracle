@@ -36,6 +36,7 @@ RUN ln -s /usr/include/asm-generic /usr/include/asm
 ENV OSX_SDK     MacOSX10.11.sdk
 ENV OSX_NDK_X86 /usr/local/osx-ndk-x86
 
+# macOS 10.8 is the minimum supported version go Go 1.8: https://github.com/golang/go/wiki/Darwin
 RUN \
   OSX_SDK_PATH=https://s3.dockerproject.org/darwin/v2/$OSX_SDK.tar.xz && \
   $FETCH $OSX_SDK_PATH dd228a335194e3392f1904ce49aff1b1da26ca62       && \
@@ -44,7 +45,7 @@ RUN \
   mv `basename $OSX_SDK_PATH` /osxcross/tarballs/        && \
   \
   sed -i -e 's|-march=native||g' /osxcross/build_clang.sh /osxcross/wrapper/build.sh && \
-  UNATTENDED=yes OSX_VERSION_MIN=10.6 /osxcross/build.sh                             && \
+  UNATTENDED=yes OSX_VERSION_MIN=10.8 /osxcross/build.sh                             && \
   mv /osxcross/target $OSX_NDK_X86                                                   && \
   \
   rm -rf /osxcross
