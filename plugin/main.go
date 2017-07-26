@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	plugin "github.com/gdavison/vault-oracle"
+	plugin "github.com/hashicorp/vault-plugin-database-oracle"
 	"github.com/hashicorp/vault/helper/pluginutil"
 )
 
