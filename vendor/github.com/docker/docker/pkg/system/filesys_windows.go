@@ -6,38 +6,28 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
-	"sync"
 	"syscall"
-	"time"
 	"unsafe"
 
 	winio "github.com/Microsoft/go-winio"
 )
 
-const (
-	// SddlAdministratorsLocalSystem is local administrators plus NT AUTHORITY\System
-	SddlAdministratorsLocalSystem = "D:P(A;OICI;GA;;;BA)(A;OICI;GA;;;SY)"
-	// SddlNtvmAdministratorsLocalSystem is NT VIRTUAL MACHINE\Virtual Machines plus local administrators plus NT AUTHORITY\System
-	SddlNtvmAdministratorsLocalSystem = "D:P(A;OICI;GA;;;S-1-5-83-0)(A;OICI;GA;;;BA)(A;OICI;GA;;;SY)"
-)
-
 // MkdirAllWithACL is a wrapper for MkdirAll that creates a directory
-// with an appropriate SDDL defined ACL.
-func MkdirAllWithACL(path string, perm os.FileMode, sddl string) error {
-	return mkdirall(path, true, sddl)
+// ACL'd for Builtin Administrators and Local System.
+func MkdirAllWithACL(path string, perm os.FileMode) error {
+	return mkdirall(path, true)
 }
 
 // MkdirAll implementation that is volume path aware for Windows.
-func MkdirAll(path string, _ os.FileMode, sddl string) error {
-	return mkdirall(path, false, sddl)
+func MkdirAll(path string, _ os.FileMode) error {
+	return mkdirall(path, false)
 }
 
 // mkdirall is a custom version of os.MkdirAll modified for use on Windows
 // so that it is both volume path aware, and can create a directory with
 // a DACL.
-func mkdirall(path string, applyACL bool, sddl string) error {
+func mkdirall(path string, adminAndLocalSystem bool) error {
 	if re := regexp.MustCompile(`^\\\\\?\\Volume{[a-z0-9-]+}$`); re.MatchString(path) {
 		return nil
 	}
@@ -71,15 +61,15 @@ func mkdirall(path string, applyACL bool, sddl string) error {
 
 	if j > 1 {
 		// Create parent
-		err = mkdirall(path[0:j-1], false, sddl)
+		err = mkdirall(path[0:j-1], false)
 		if err != nil {
 			return err
 		}
 	}
 
 	// Parent now exists; invoke os.Mkdir or mkdirWithACL and use its result.
-	if applyACL {
-		err = mkdirWithACL(path, sddl)
+	if adminAndLocalSystem {
+		err = mkdirWithACL(path)
 	} else {
 		err = os.Mkdir(path, 0)
 	}
@@ -103,9 +93,9 @@ func mkdirall(path string, applyACL bool, sddl string) error {
 // in golang to cater for creating a directory am ACL permitting full
 // access, with inheritance, to any subfolder/file for Built-in Administrators
 // and Local System.
-func mkdirWithACL(name string, sddl string) error {
+func mkdirWithACL(name string) error {
 	sa := syscall.SecurityAttributes{Length: 0}
-
+	sddl := "D:P(A;OICI;GA;;;BA)(A;OICI;GA;;;SY)"
 	sd, err := winio.SddlToSecurityDescriptor(sddl)
 	if err != nil {
 		return &os.PathError{Op: "mkdir", Path: name, Err: err}
@@ -243,56 +233,4 @@ func syscallOpenSequential(path string, mode int, _ uint32) (fd syscall.Handle, 
 	const fileFlagSequentialScan = 0x08000000 // FILE_FLAG_SEQUENTIAL_SCAN
 	h, e := syscall.CreateFile(pathp, access, sharemode, sa, createmode, fileFlagSequentialScan, 0)
 	return h, e
-}
-
-// Helpers for TempFileSequential
-var rand uint32
-var randmu sync.Mutex
-
-func reseed() uint32 {
-	return uint32(time.Now().UnixNano() + int64(os.Getpid()))
-}
-func nextSuffix() string {
-	randmu.Lock()
-	r := rand
-	if r == 0 {
-		r = reseed()
-	}
-	r = r*1664525 + 1013904223 // constants from Numerical Recipes
-	rand = r
-	randmu.Unlock()
-	return strconv.Itoa(int(1e9 + r%1e9))[1:]
-}
-
-// TempFileSequential is a copy of ioutil.TempFile, modified to use sequential
-// file access. Below is the original comment from golang:
-// TempFile creates a new temporary file in the directory dir
-// with a name beginning with prefix, opens the file for reading
-// and writing, and returns the resulting *os.File.
-// If dir is the empty string, TempFile uses the default directory
-// for temporary files (see os.TempDir).
-// Multiple programs calling TempFile simultaneously
-// will not choose the same file. The caller can use f.Name()
-// to find the pathname of the file. It is the caller's responsibility
-// to remove the file when no longer needed.
-func TempFileSequential(dir, prefix string) (f *os.File, err error) {
-	if dir == "" {
-		dir = os.TempDir()
-	}
-
-	nconflict := 0
-	for i := 0; i < 10000; i++ {
-		name := filepath.Join(dir, prefix+nextSuffix())
-		f, err = OpenFileSequential(name, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0600)
-		if os.IsExist(err) {
-			if nconflict++; nconflict > 10 {
-				randmu.Lock()
-				rand = reseed()
-				randmu.Unlock()
-			}
-			continue
-		}
-		break
-	}
-	return
 }
