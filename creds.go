@@ -2,7 +2,6 @@ package oracle
 
 import (
 	"strings"
-	"time"
 
 	"github.com/hashicorp/vault/builtin/logical/database/dbplugin"
 	"github.com/hashicorp/vault/plugins/helper/database/credsutil"
@@ -21,8 +20,4 @@ func (ocp *oracleCredentialsProducer) GenerateUsername(config dbplugin.UsernameC
 		username = strings.Replace(username, ".", "_", -1)
 		return strings.ToLower(username), nil
 	}
-}
-
-func (ocp *oracleCredentialsProducer) GenerateExpiration(ttl time.Time) (string, error) {
-	return ttl.Format("2006-01-02 15:04:05-0700"), nil
 }
