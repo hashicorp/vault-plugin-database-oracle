@@ -1,7 +1,6 @@
 package oracle
 
 import (
-	"math/rand"
 	"strings"
 	"time"
 
@@ -34,18 +33,7 @@ func (ocp *oracleCredentialsProducer) GeneratePassword() (string, error) {
 	//   underscore (_), dollar sign ($), and pound sign (#). Oracle
 	//   strongly discourages you from using $ and #.
 	// o A Password cannot be an Oracle reserved word (eg: SELECT).
-	if password, err := ocp.SQLCredentialsProducer.GeneratePassword(); err != nil {
-		return "", err
-	} else {
-		// credsutil.SQLCredentialsProducer.GeneratePassword() uses github.com/hashicorp/go-uuid, which generates
-		// cryptographically-random UUIDs. We should be safe replacing the first character with a non-secure
-		// random lower-case character
-		charOffset := rand.Intn(26)
-		char := string(rune('a') + rune(charOffset))
-		password = strings.Replace(password, "-", "", -1)
-		password = char + password[1:oraclePasswordLength]
-		return password, nil
-	}
+	return ocp.SQLCredentialsProducer.GeneratePassword()
 }
 
 func (ocp *oracleCredentialsProducer) GenerateExpiration(ttl time.Time) (string, error) {
