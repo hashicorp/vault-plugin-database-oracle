@@ -106,7 +106,7 @@ func (tp testPassword) Generate(rand *rand.Rand, size int) reflect.Value {
 func TestPasswordShouldMatchOracleRequirements(t *testing.T) {
 
 	assertion := func(password testPassword) bool {
-		result, _ := regexp.MatchString(fmt.Sprintf("^[[:lower:]][_[:lower:][:digit:]]{%d}$", oraclePasswordLength-1), string(password))
+		result, _ := regexp.MatchString(fmt.Sprintf("^[[:upper:]][_[:lower:][:upper:][:digit:]]{%d}$", 19), string(password))
 		return result
 	}
 	if err := quick.Check(assertion, nil); err != nil {

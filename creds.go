@@ -21,3 +21,12 @@ func (ocp *oracleCredentialsProducer) GenerateUsername(config dbplugin.UsernameC
 		return strings.ToLower(username), nil
 	}
 }
+
+func (ocp *oracleCredentialsProducer) GeneratePassword() (string, error) {
+	if password, err := ocp.SQLCredentialsProducer.GeneratePassword(); err != nil {
+		return "", err
+	} else {
+		password = strings.Replace(password, "-", "_", -1)
+		return password, nil
+	}
+}
