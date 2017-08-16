@@ -265,6 +265,7 @@ func testCredentialsExist(connString, username, password string) error {
 }
 
 const testRole = `
+alter session set "_ORACLE_SCRIPT"=true;  
 CREATE USER {{name}} IDENTIFIED BY {{password}};
 GRANT CONNECT TO {{name}};
 GRANT CREATE SESSION TO {{name}};
