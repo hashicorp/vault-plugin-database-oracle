@@ -30,18 +30,18 @@ Libs.private:
 Cflags: -I${includedir}
 ```
 
-Then, `git clone` this repository into your `$GOPATH` and `go build -o oracle-database-plugin ./plugin` from the project directory.
+Then, `git clone` this repository into your `$GOPATH` and `go build -o vault-plugin-database-oracle ./plugin` from the project directory.
 
 ## Installation
 
 The Vault plugin system is documented on the [Vault documentation site](https://www.vaultproject.io/docs/internals/plugins.html).
 
-You will need to define a plugin directory using the `plugin_directory` configuration directive, then place the `oracle-database-plugin` executable generated above in the directory.
+You will need to define a plugin directory using the `plugin_directory` configuration directive, then place the `vault-plugin-database-oracle` executable generated above in the directory.
 
 Register the plugin using
 
 ```
-vault write sys/plugins/catalog/oracle-database-plugin \ 
+vault write sys/plugins/catalog/vault-plugin-database-oracle \ 
     sha_256=<expected SHA256 Hex value of the plugin binary> \
-    command="oracle-database-plugin"
+    command="vault-plugin-database-oracle"
 ```
