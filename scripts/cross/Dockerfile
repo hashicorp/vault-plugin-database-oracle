@@ -1,4 +1,4 @@
-FROM store/oracle/database-instantclient:latest
+FROM store/oracle/database-instantclient:12.2.0.1
 
 RUN yum update -y && yum install -y  \
 		gcc \
