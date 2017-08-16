@@ -1,11 +1,14 @@
-# vault-oracle
+# vault-database-plugin-oracle
+
 A [Vault](https://www.vaultproject.io) plugin for Oracle
 
 This project uses the database plugin interface introduced in Vault version 0.7.1.
 
 ## Build
 
-There is not currently a pre-built binary available.
+For linux/amd64, pre-built binaries can be found at [the releases page](https://releases.hashicorp.com/vault-plugin-database-oracle/)
+
+For other platforms, there are not currently pre-built binaries available.
 
 Before building, you will need to download the Oracle Instant Client library, which is available from [Oracle](http://www.oracle.com/technetwork/database/features/instant-client/index-097480.html). Download the SDK package to get the headers and download the Basic package to get the libraries for your platform.
 
