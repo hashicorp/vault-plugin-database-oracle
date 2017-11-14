@@ -5,7 +5,7 @@
   branch = "master"
   name = "github.com/Azure/go-ansiterm"
   packages = [".","winterm"]
-  revision = "19f72df4d05d31cbe1c56bfc8045c96babff6c7e"
+  revision = "d6e3b3328b783f23731bc4d058875b0371ff8109"
 
 [[projects]]
   name = "github.com/Microsoft/go-winio"
@@ -140,10 +140,10 @@
   revision = "392dba7d905ed5d04a5794ba89f558b27e2ba1ca"
 
 [[projects]]
+  branch = "master"
   name = "github.com/hashicorp/vault"
   packages = ["api","builtin/logical/database/dbplugin","helper/certutil","helper/compressutil","helper/errutil","helper/jsonutil","helper/mlock","helper/parseutil","helper/pluginutil","helper/strutil","helper/wrapping","plugins","plugins/helper/database/connutil","plugins/helper/database/credsutil","plugins/helper/database/dbutil"]
-  revision = "6b29fb2b7f70ed538ee2b3c057335d706b6d4e36"
-  version = "v0.8.3"
+  revision = "4a60247941f5d3ff483ea9b1f6b8f119a35321d4"
 
 [[projects]]
   branch = "master"
@@ -218,16 +218,16 @@
   version = "v0.8.0"
 
 [[projects]]
+  name = "github.com/ryanuber/go-glob"
+  packages = ["."]
+  revision = "572520ed46dbddaed19ea3d9541bdd0494163693"
+  version = "v0.1"
+
+[[projects]]
   branch = "master"
   name = "github.com/sethgrid/pester"
   packages = ["."]
   revision = "99271bb5a99e5769f688c483eabb3c22d71ebf93"
-
-[[projects]]
-  name = "github.com/sirupsen/logrus"
-  packages = ["."]
-  revision = "f006c2ac4710855cf0f916dd6b77acf6b048dc6e"
-  version = "v1.0.3"
 
 [[projects]]
   branch = "master"
@@ -280,6 +280,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a025be2cb019d78f2ff8a1eda2bd6caca5cad68f5dd0a317a78490bfe0185f43"
+  inputs-digest = "9944484090f8164d62a78a9ece02b1bae6606d4adbc0c6c0e62e5ab09eb05606"
   solver-name = "gps-cdcl"
   solver-version = 1
