@@ -1,6 +1,7 @@
 package oracle
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -72,7 +73,7 @@ func (o *Oracle) Type() (string, error) {
 	return oracleTypeName, nil
 }
 
-func (o *Oracle) CreateUser(statements dbplugin.Statements, usernameConfig dbplugin.UsernameConfig, expiration time.Time) (username string, password string, err error) {
+func (o *Oracle) CreateUser(ctx context.Context, statements dbplugin.Statements, usernameConfig dbplugin.UsernameConfig, expiration time.Time) (username string, password string, err error) {
 	if statements.CreationStatements == "" {
 		return "", "", dbutil.ErrEmptyCreationStatement
 	}
@@ -97,7 +98,7 @@ func (o *Oracle) CreateUser(statements dbplugin.Statements, usernameConfig dbplu
 	}
 
 	// Get the connection
-	db, err := o.getConnection()
+	db, err := o.getConnection(ctx)
 	if err != nil {
 		return "", "", err
 
@@ -146,17 +147,17 @@ func (o *Oracle) CreateUser(statements dbplugin.Statements, usernameConfig dbplu
 	return username, password, nil
 }
 
-func (o *Oracle) RenewUser(statements dbplugin.Statements, username string, expiration time.Time) error {
+func (o *Oracle) RenewUser(ctx context.Context, statements dbplugin.Statements, username string, expiration time.Time) error {
 	return nil // NOOP
 }
 
-func (o *Oracle) RevokeUser(statements dbplugin.Statements, username string) error {
+func (o *Oracle) RevokeUser(ctx context.Context, statements dbplugin.Statements, username string) error {
 	// Grab the lock
 	o.Lock()
 	defer o.Unlock()
 
 	// Get the connection
-	db, err := o.getConnection()
+	db, err := o.getConnection(ctx)
 	if err != nil {
 		return err
 	}
@@ -222,8 +223,8 @@ func (o *Oracle) disconnectSession(db *sql.DB, username string) error {
 	return nil
 }
 
-func (o *Oracle) getConnection() (*sql.DB, error) {
-	db, err := o.Connection()
+func (o *Oracle) getConnection(ctx context.Context) (*sql.DB, error) {
+	db, err := o.Connection(ctx)
 	if err != nil {
 		return nil, err
 	}

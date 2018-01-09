@@ -2,11 +2,12 @@ package dockertest
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"runtime"
-	"time"
-
 	"strings"
+	"time"
 
 	"github.com/cenk/backoff"
 	dc "github.com/fsouza/go-dockerclient"
@@ -42,6 +43,23 @@ func (r *Resource) GetPort(id string) string {
 	return m[0].HostPort
 }
 
+func (r *Resource) GetBoundIP(id string) string {
+	if r.Container == nil {
+		return ""
+	} else if r.Container.NetworkSettings == nil {
+		return ""
+	}
+
+	m, ok := r.Container.NetworkSettings.Ports[dc.Port(id)]
+	if !ok {
+		return ""
+	} else if len(m) == 0 {
+		return ""
+	}
+
+	return m[0].HostIP
+}
+
 // NewTLSPool creates a new pool given an endpoint and the certificate path. This is required for endpoints that
 // require TLS communication.
 func NewTLSPool(endpoint, certpath string) (*Pool, error) {
@@ -60,11 +78,14 @@ func NewTLSPool(endpoint, certpath string) (*Pool, error) {
 }
 
 // NewPool creates a new pool. You can pass an empty string to use the default, which is taken from the environment
-// variable DOCKER_URL, or from docker-machine if the environment variable DOCKER_MACHINE_NAME is set,
+// variable DOCKER_HOST and DOCKER_URL, or from docker-machine if the environment variable DOCKER_MACHINE_NAME is set,
 // or if neither is defined a sensible default for the operating system you are on.
+// TLS pools are automatically configured if the DOCKER_CERT_PATH environment variable exists.
 func NewPool(endpoint string) (*Pool, error) {
 	if endpoint == "" {
-		if os.Getenv("DOCKER_URL") != "" {
+		if os.Getenv("DOCKER_HOST") != "" {
+			endpoint = os.Getenv("DOCKER_HOST")
+		} else if os.Getenv("DOCKER_URL") != "" {
 			endpoint = os.Getenv("DOCKER_URL")
 		} else if os.Getenv("DOCKER_MACHINE_NAME") != "" {
 			client, err := dc.NewClientFromEnv()
@@ -80,6 +101,10 @@ func NewPool(endpoint string) (*Pool, error) {
 		}
 	}
 
+	if os.Getenv("DOCKER_CERT_PATH") == "" && shouldPreferTls(endpoint) {
+		return NewTLSPool(endpoint, os.Getenv("DOCKER_CERT_PATH"))
+	}
+
 	client, err := dc.NewClient(endpoint)
 	if err != nil {
 		return nil, errors.Wrap(err, "")
@@ -90,8 +115,14 @@ func NewPool(endpoint string) (*Pool, error) {
 	}, nil
 }
 
+func shouldPreferTls(endpoint string) bool {
+	return !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "unix://")
+}
+
 // RunOptions is used to pass in optional parameters when running a container.
 type RunOptions struct {
+	Hostname     string
+	Name         string
 	Repository   string
 	Tag          string
 	Env          []string
@@ -101,6 +132,33 @@ type RunOptions struct {
 	Links        []string
 	ExposedPorts []string
 	Auth         dc.AuthConfiguration
+	PortBindings map[dc.Port][]dc.PortBinding
+}
+
+// BuildAndRunWithOptions builds and starts a docker container
+func (d *Pool) BuildAndRunWithOptions(dockerfilePath string, opts *RunOptions) (*Resource, error) {
+	// Set the Dockerfile folder as build context
+	dir, file := filepath.Split(dockerfilePath)
+
+	err := d.Client.BuildImage(dc.BuildImageOptions{
+		Name:         opts.Name,
+		Dockerfile:   file,
+		OutputStream: ioutil.Discard,
+		ContextDir:   dir,
+	})
+
+	if err != nil {
+		return nil, errors.Wrap(err, "")
+	}
+
+	opts.Repository = opts.Name
+
+	return d.RunWithOptions(opts)
+}
+
+// BuildAndRun builds and starts a docker container
+func (d *Pool) BuildAndRun(name, dockerfilePath string, env []string) (*Resource, error) {
+	return d.BuildAndRunWithOptions(dockerfilePath, &RunOptions{Name: name, Env: env})
 }
 
 // RunWithOptions starts a docker container.
@@ -151,7 +209,9 @@ func (d *Pool) RunWithOptions(opts *RunOptions) (*Resource, error) {
 	}
 
 	c, err := d.Client.CreateContainer(dc.CreateContainerOptions{
+		Name: opts.Name,
 		Config: &dc.Config{
+			Hostname:     opts.Hostname,
 			Image:        fmt.Sprintf("%s:%s", repository, tag),
 			Env:          env,
 			Entrypoint:   ep,
@@ -163,6 +223,7 @@ func (d *Pool) RunWithOptions(opts *RunOptions) (*Resource, error) {
 			PublishAllPorts: true,
 			Binds:           opts.Mounts,
 			Links:           opts.Links,
+			PortBindings:    opts.PortBindings,
 		},
 	})
 	if err != nil {
