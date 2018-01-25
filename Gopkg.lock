@@ -13,8 +13,8 @@
 [[projects]]
   name = "github.com/Microsoft/go-winio"
   packages = ["."]
-  revision = "78439966b38d69bf38227fbf57ac8a6fee70f69a"
-  version = "v0.4.5"
+  revision = "7da180ee92d8bd8bb8c37fc560e673e6557c392f"
+  version = "v0.4.7"
 
 [[projects]]
   branch = "master"
@@ -122,7 +122,7 @@
     "ptypes/duration",
     "ptypes/timestamp"
   ]
-  revision = "1e59b77b52bf8e4b449a57e6f79f21226d571845"
+  revision = "c65a0412e71e8b9b3bfd22925720d23c0f054237"
 
 [[projects]]
   branch = "master"
@@ -146,13 +146,13 @@
   branch = "master"
   name = "github.com/hashicorp/go-hclog"
   packages = ["."]
-  revision = "ca137eb4b4389c9bc6f1a6d887f056bf16c00510"
+  revision = "5bcb0f17e36442247290887cc914a6e507afa5c4"
 
 [[projects]]
   branch = "master"
   name = "github.com/hashicorp/go-immutable-radix"
   packages = ["."]
-  revision = "8aac2701530899b64bdea735a1de8da899815220"
+  revision = "59b67882ec612f43b9d4c4fd97cebd507be4b3ee"
 
 [[projects]]
   branch = "master"
@@ -164,7 +164,7 @@
   branch = "master"
   name = "github.com/hashicorp/go-plugin"
   packages = ["."]
-  revision = "e2fbc6864d18d3c37b6cde4297ec9fca266d28f1"
+  revision = "4812fde368935ee7d8bf9866bdca3d98ecddd30a"
 
 [[projects]]
   branch = "master"
@@ -177,6 +177,12 @@
   name = "github.com/hashicorp/go-uuid"
   packages = ["."]
   revision = "64130c7a86d732268a38cb04cfbaf0cc987fda98"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/hashicorp/go-version"
+  packages = ["."]
+  revision = "4fe82ae3040f80a03d04d2cccb5606a626b8e1ee"
 
 [[projects]]
   branch = "master"
@@ -218,9 +224,10 @@
     "plugins",
     "plugins/helper/database/connutil",
     "plugins/helper/database/credsutil",
-    "plugins/helper/database/dbutil"
+    "plugins/helper/database/dbutil",
+    "version"
   ]
-  revision = "c9e5cd5433dbfe0876c34e52f9114a13eee3ce9c"
+  revision = "0ffbf4018611e5da0f2095cdf233defd55e0ff8d"
 
 [[projects]]
   branch = "master"
@@ -280,7 +287,13 @@
   branch = "master"
   name = "github.com/mitchellh/mapstructure"
   packages = ["."]
-  revision = "06020f85339e21b2478f756a78e295255ffa4d6a"
+  revision = "b4575eea38cca1123ec2dc90c26529b5c5acfcff"
+
+[[projects]]
+  name = "github.com/oklog/run"
+  packages = ["."]
+  revision = "4dadeb3030eda0273a12382bb2348ffc7c9d1a39"
+  version = "v1.0.0"
 
 [[projects]]
   name = "github.com/opencontainers/go-digest"
@@ -337,13 +350,13 @@
     "dber",
     "orahlp"
   ]
-  revision = "1127def73789a058b1d70c80dffc79152dc03e87"
+  revision = "666c2c54e17459518bb8c78ce5306bca0e84b3d8"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "0fcca4842a8d74bfddc2c96a073bd2a4d2a7a2e8"
+  revision = "3d37316aaa6bd9929127ac9a527abf408178ea7b"
 
 [[projects]]
   branch = "master"
@@ -358,7 +371,7 @@
     "lex/httplex",
     "trace"
   ]
-  revision = "434ec0c7fe3742c984919a691b2018a6e9694425"
+  revision = "0ed95abb35c445290478a5348a7b38bb154135fd"
 
 [[projects]]
   branch = "master"
@@ -367,7 +380,7 @@
     "unix",
     "windows"
   ]
-  revision = "b9cf5f96b68d9eaa53d5db5fef235718767f416a"
+  revision = "af9a21289d0040306ecc55fa668c95246f1f8425"
 
 [[projects]]
   branch = "master"
@@ -394,7 +407,7 @@
   branch = "master"
   name = "google.golang.org/genproto"
   packages = ["googleapis/rpc/status"]
-  revision = "a8101f21cf983e773d0c1133ebc5424792003214"
+  revision = "14790a1795ea4c3387aaf24aed670ddb51f18292"
 
 [[projects]]
   name = "google.golang.org/grpc"
@@ -424,8 +437,8 @@
     "tap",
     "transport"
   ]
-  revision = "7cea4cc846bcf00cbb27595b07da5de875ef7de9"
-  version = "v1.9.1"
+  revision = "6b51017f791ae1cfbec89c52efdf444b13b550ef"
+  version = "v1.9.2"
 
 [[projects]]
   name = "gopkg.in/ory-am/dockertest.v3"
