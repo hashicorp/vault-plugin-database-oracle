@@ -122,7 +122,7 @@
     "ptypes/duration",
     "ptypes/timestamp"
   ]
-  revision = "c65a0412e71e8b9b3bfd22925720d23c0f054237"
+  revision = "925541529c1fa6821df4e44ce2723319eb2be768"
 
 [[projects]]
   branch = "master"
@@ -164,7 +164,7 @@
   branch = "master"
   name = "github.com/hashicorp/go-plugin"
   packages = ["."]
-  revision = "4812fde368935ee7d8bf9866bdca3d98ecddd30a"
+  revision = "e53f54cbf51efde642d4711313e829a1ff0c236d"
 
 [[projects]]
   branch = "master"
@@ -207,7 +207,6 @@
   revision = "23c074d0eceb2b8a5bfdbb271ab780cde70f05a8"
 
 [[projects]]
-  branch = "master"
   name = "github.com/hashicorp/vault"
   packages = [
     "api",
@@ -227,7 +226,8 @@
     "plugins/helper/database/dbutil",
     "version"
   ]
-  revision = "0ffbf4018611e5da0f2095cdf233defd55e0ff8d"
+  revision = "3bf8733cd69bb0ac14da9aaa6135bcb7f710cc5f"
+  version = "v0.9.2"
 
 [[projects]]
   branch = "master"
@@ -350,13 +350,13 @@
     "dber",
     "orahlp"
   ]
-  revision = "666c2c54e17459518bb8c78ce5306bca0e84b3d8"
+  revision = "be5aa526b37145cd8cdc3771c847020d0df504df"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "3d37316aaa6bd9929127ac9a527abf408178ea7b"
+  revision = "0efb9460aaf800c6376acf625be2853bceac2e06"
 
 [[projects]]
   branch = "master"
@@ -380,7 +380,7 @@
     "unix",
     "windows"
   ]
-  revision = "af9a21289d0040306ecc55fa668c95246f1f8425"
+  revision = "ff2a66f350cefa5c93a634eadb5d25bb60c85a9c"
 
 [[projects]]
   branch = "master"
@@ -407,7 +407,7 @@
   branch = "master"
   name = "google.golang.org/genproto"
   packages = ["googleapis/rpc/status"]
-  revision = "14790a1795ea4c3387aaf24aed670ddb51f18292"
+  revision = "4eb30f4778eed4c258ba66527a0d4f9ec8a36c45"
 
 [[projects]]
   name = "google.golang.org/grpc"
@@ -449,6 +449,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9944484090f8164d62a78a9ece02b1bae6606d4adbc0c6c0e62e5ab09eb05606"
+  inputs-digest = "f516574968017264479b0d7d1e9633628ddca62721fb711446c68c6493eb1263"
   solver-name = "gps-cdcl"
   solver-version = 1
