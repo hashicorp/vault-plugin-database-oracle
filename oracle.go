@@ -180,7 +180,7 @@ func (o *Oracle) RevokeUser(ctx context.Context, statements dbplugin.Statements,
 
 	tx, err := db.Begin()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer func() {
 		tx.Rollback()
@@ -209,12 +209,12 @@ func (o *Oracle) RevokeUser(ctx context.Context, statements dbplugin.Statements,
 				"username": username,
 			}))
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			defer stmt.Close()
 			if _, err := stmt.ExecContext(ctx); err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
@@ -302,7 +302,7 @@ func (o *Oracle) disconnectSession(db *sql.DB, username string) error {
 			if err != nil {
 				return err
 			}
-			killStatement := fmt.Sprintf(sessionKillSQL, sessionId, serialNumber)
+			killStatement := fmt.Sprintf(sessionKillSQL, sessionID, serialNumber)
 			_, err = db.Exec(killStatement)
 			if err != nil {
 				return err
