@@ -296,9 +296,9 @@ func (o *Oracle) disconnectSession(db *sql.DB, username string) error {
 	} else {
 		defer rows.Close()
 		for rows.Next() {
-			var sessionId, serialNumber int
+			var sessionID, serialNumber int
 			var username sql.NullString
-			err = rows.Scan(&sessionId, &serialNumber, &username)
+			err = rows.Scan(&sessionID, &serialNumber, &username)
 			if err != nil {
 				return err
 			}
