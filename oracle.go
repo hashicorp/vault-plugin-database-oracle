@@ -178,6 +178,14 @@ func (o *Oracle) RevokeUser(ctx context.Context, statements dbplugin.Statements,
 		return err
 	}
 
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		tx.Rollback()
+	}()
+
 	if err := o.disconnectSession(db, username); err != nil {
 		return err
 	}
@@ -197,18 +205,84 @@ func (o *Oracle) RevokeUser(ctx context.Context, statements dbplugin.Statements,
 				continue
 			}
 
-			stmt, err := db.Prepare(strings.Replace(query, "{{name}}", username, -1))
+			stmt, err := tx.PrepareContext(ctx, dbutil.QueryHelper(query, map[string]string{
+				"username": username,
+			}))
 			if err != nil {
-				return err
+				return nil, err
 			}
+
 			defer stmt.Close()
-			if _, err := stmt.Exec(); err != nil {
-				return err
+			if _, err := stmt.ExecContext(ctx); err != nil {
+				return nil, err
 			}
 		}
 	}
 
 	return nil
+}
+
+func (o *Oracle) RotateRootCredentials(ctx context.Context, statements []string) (map[string]interface{}, error) {
+	o.Lock()
+	defer o.Unlock()
+
+	if len(o.Username) == 0 || len(o.Password) == 0 {
+		return nil, errors.New("username and password are required to rotate")
+	}
+
+	if len(statements) == 0 {
+		return nil, errors.New("rotation statements must be provided")
+	}
+
+	db, err := o.getConnection(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		tx.Rollback()
+	}()
+
+	password, err := o.GeneratePassword()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, stmt := range statements {
+		for _, query := range strutil.ParseArbitraryStringSlice(stmt, ";") {
+			query = strings.TrimSpace(query)
+			if len(query) == 0 {
+				continue
+			}
+			stmt, err := tx.PrepareContext(ctx, dbutil.QueryHelper(query, map[string]string{
+				"username": o.Username,
+				"password": password,
+			}))
+			if err != nil {
+				return nil, err
+			}
+
+			defer stmt.Close()
+			if _, err := stmt.ExecContext(ctx); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	if err := db.Close(); err != nil {
+		return nil, err
+	}
+
+	o.RawConfig["password"] = password
+	return o.RawConfig, nil
 }
 
 func (o *Oracle) disconnectSession(db *sql.DB, username string) error {
@@ -249,8 +323,4 @@ func (o *Oracle) getConnection(ctx context.Context) (*sql.DB, error) {
 	}
 
 	return db.(*sql.DB), nil
-}
-
-func (o *Oracle) RotateRootCredentials(ctx context.Context, statements []string) (map[string]interface{}, error) {
-	return nil, errors.New("root credentaion rotation is not currently implemented in this database secrets engine")
 }
