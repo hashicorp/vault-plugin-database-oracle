@@ -70,7 +70,10 @@ func new() *Oracle {
 
 // Run instantiates an Oracle object, and runs the RPC server for the plugin
 func Run(apiTLSConfig *api.TLSConfig) error {
-	dbType := New()
+	dbType, err := New()
+	if err != nil {
+		return err
+	}
 
 	plugins.Serve(dbType, apiTLSConfig)
 
@@ -245,4 +248,8 @@ func (o *Oracle) getConnection(ctx context.Context) (*sql.DB, error) {
 	}
 
 	return db.(*sql.DB), nil
+}
+
+func (o *Oracle) RotateRootCredentials(ctx context.Context, statements []string) (config map[string]interface{}, err error) {
+	return
 }
