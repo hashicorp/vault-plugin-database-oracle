@@ -9,13 +9,17 @@ It is generated from these files:
 
 It has these top-level messages:
 	InitializeRequest
+	InitRequest
 	CreateUserRequest
 	RenewUserRequest
 	RevokeUserRequest
+	RotateRootCredentialsRequest
 	Statements
 	UsernameConfig
+	InitResponse
 	CreateUserResponse
 	TypeResponse
+	RotateRootCredentialsResponse
 	Empty
 */
 package dbplugin
@@ -65,6 +69,30 @@ func (m *InitializeRequest) GetVerifyConnection() bool {
 	return false
 }
 
+type InitRequest struct {
+	Config           []byte `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
+	VerifyConnection bool   `protobuf:"varint,2,opt,name=verify_connection,json=verifyConnection" json:"verify_connection,omitempty"`
+}
+
+func (m *InitRequest) Reset()                    { *m = InitRequest{} }
+func (m *InitRequest) String() string            { return proto.CompactTextString(m) }
+func (*InitRequest) ProtoMessage()               {}
+func (*InitRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+
+func (m *InitRequest) GetConfig() []byte {
+	if m != nil {
+		return m.Config
+	}
+	return nil
+}
+
+func (m *InitRequest) GetVerifyConnection() bool {
+	if m != nil {
+		return m.VerifyConnection
+	}
+	return false
+}
+
 type CreateUserRequest struct {
 	Statements     *Statements                `protobuf:"bytes,1,opt,name=statements" json:"statements,omitempty"`
 	UsernameConfig *UsernameConfig            `protobuf:"bytes,2,opt,name=username_config,json=usernameConfig" json:"username_config,omitempty"`
@@ -74,7 +102,7 @@ type CreateUserRequest struct {
 func (m *CreateUserRequest) Reset()                    { *m = CreateUserRequest{} }
 func (m *CreateUserRequest) String() string            { return proto.CompactTextString(m) }
 func (*CreateUserRequest) ProtoMessage()               {}
-func (*CreateUserRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+func (*CreateUserRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 
 func (m *CreateUserRequest) GetStatements() *Statements {
 	if m != nil {
@@ -106,7 +134,7 @@ type RenewUserRequest struct {
 func (m *RenewUserRequest) Reset()                    { *m = RenewUserRequest{} }
 func (m *RenewUserRequest) String() string            { return proto.CompactTextString(m) }
 func (*RenewUserRequest) ProtoMessage()               {}
-func (*RenewUserRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+func (*RenewUserRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
 
 func (m *RenewUserRequest) GetStatements() *Statements {
 	if m != nil {
@@ -137,7 +165,7 @@ type RevokeUserRequest struct {
 func (m *RevokeUserRequest) Reset()                    { *m = RevokeUserRequest{} }
 func (m *RevokeUserRequest) String() string            { return proto.CompactTextString(m) }
 func (*RevokeUserRequest) ProtoMessage()               {}
-func (*RevokeUserRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+func (*RevokeUserRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
 
 func (m *RevokeUserRequest) GetStatements() *Statements {
 	if m != nil {
@@ -153,17 +181,41 @@ func (m *RevokeUserRequest) GetUsername() string {
 	return ""
 }
 
+type RotateRootCredentialsRequest struct {
+	Statements []string `protobuf:"bytes,1,rep,name=statements" json:"statements,omitempty"`
+}
+
+func (m *RotateRootCredentialsRequest) Reset()                    { *m = RotateRootCredentialsRequest{} }
+func (m *RotateRootCredentialsRequest) String() string            { return proto.CompactTextString(m) }
+func (*RotateRootCredentialsRequest) ProtoMessage()               {}
+func (*RotateRootCredentialsRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
+
+func (m *RotateRootCredentialsRequest) GetStatements() []string {
+	if m != nil {
+		return m.Statements
+	}
+	return nil
+}
+
 type Statements struct {
-	CreationStatements   string `protobuf:"bytes,1,opt,name=creation_statements,json=creationStatements" json:"creation_statements,omitempty"`
+	// DEPRECATED, will be removed in 0.12
+	CreationStatements string `protobuf:"bytes,1,opt,name=creation_statements,json=creationStatements" json:"creation_statements,omitempty"`
+	// DEPRECATED, will be removed in 0.12
 	RevocationStatements string `protobuf:"bytes,2,opt,name=revocation_statements,json=revocationStatements" json:"revocation_statements,omitempty"`
-	RollbackStatements   string `protobuf:"bytes,3,opt,name=rollback_statements,json=rollbackStatements" json:"rollback_statements,omitempty"`
-	RenewStatements      string `protobuf:"bytes,4,opt,name=renew_statements,json=renewStatements" json:"renew_statements,omitempty"`
+	// DEPRECATED, will be removed in 0.12
+	RollbackStatements string `protobuf:"bytes,3,opt,name=rollback_statements,json=rollbackStatements" json:"rollback_statements,omitempty"`
+	// DEPRECATED, will be removed in 0.12
+	RenewStatements string   `protobuf:"bytes,4,opt,name=renew_statements,json=renewStatements" json:"renew_statements,omitempty"`
+	Creation        []string `protobuf:"bytes,5,rep,name=creation" json:"creation,omitempty"`
+	Revocation      []string `protobuf:"bytes,6,rep,name=revocation" json:"revocation,omitempty"`
+	Rollback        []string `protobuf:"bytes,7,rep,name=rollback" json:"rollback,omitempty"`
+	Renewal         []string `protobuf:"bytes,8,rep,name=renewal" json:"renewal,omitempty"`
 }
 
 func (m *Statements) Reset()                    { *m = Statements{} }
 func (m *Statements) String() string            { return proto.CompactTextString(m) }
 func (*Statements) ProtoMessage()               {}
-func (*Statements) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
+func (*Statements) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
 
 func (m *Statements) GetCreationStatements() string {
 	if m != nil {
@@ -193,6 +245,34 @@ func (m *Statements) GetRenewStatements() string {
 	return ""
 }
 
+func (m *Statements) GetCreation() []string {
+	if m != nil {
+		return m.Creation
+	}
+	return nil
+}
+
+func (m *Statements) GetRevocation() []string {
+	if m != nil {
+		return m.Revocation
+	}
+	return nil
+}
+
+func (m *Statements) GetRollback() []string {
+	if m != nil {
+		return m.Rollback
+	}
+	return nil
+}
+
+func (m *Statements) GetRenewal() []string {
+	if m != nil {
+		return m.Renewal
+	}
+	return nil
+}
+
 type UsernameConfig struct {
 	DisplayName string `protobuf:"bytes,1,opt,name=DisplayName" json:"DisplayName,omitempty"`
 	RoleName    string `protobuf:"bytes,2,opt,name=RoleName" json:"RoleName,omitempty"`
@@ -201,7 +281,7 @@ type UsernameConfig struct {
 func (m *UsernameConfig) Reset()                    { *m = UsernameConfig{} }
 func (m *UsernameConfig) String() string            { return proto.CompactTextString(m) }
 func (*UsernameConfig) ProtoMessage()               {}
-func (*UsernameConfig) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
+func (*UsernameConfig) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
 
 func (m *UsernameConfig) GetDisplayName() string {
 	if m != nil {
@@ -217,6 +297,22 @@ func (m *UsernameConfig) GetRoleName() string {
 	return ""
 }
 
+type InitResponse struct {
+	Config []byte `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
+}
+
+func (m *InitResponse) Reset()                    { *m = InitResponse{} }
+func (m *InitResponse) String() string            { return proto.CompactTextString(m) }
+func (*InitResponse) ProtoMessage()               {}
+func (*InitResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
+
+func (m *InitResponse) GetConfig() []byte {
+	if m != nil {
+		return m.Config
+	}
+	return nil
+}
+
 type CreateUserResponse struct {
 	Username string `protobuf:"bytes,1,opt,name=username" json:"username,omitempty"`
 	Password string `protobuf:"bytes,2,opt,name=password" json:"password,omitempty"`
@@ -225,7 +321,7 @@ type CreateUserResponse struct {
 func (m *CreateUserResponse) Reset()                    { *m = CreateUserResponse{} }
 func (m *CreateUserResponse) String() string            { return proto.CompactTextString(m) }
 func (*CreateUserResponse) ProtoMessage()               {}
-func (*CreateUserResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
+func (*CreateUserResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
 
 func (m *CreateUserResponse) GetUsername() string {
 	if m != nil {
@@ -248,7 +344,7 @@ type TypeResponse struct {
 func (m *TypeResponse) Reset()                    { *m = TypeResponse{} }
 func (m *TypeResponse) String() string            { return proto.CompactTextString(m) }
 func (*TypeResponse) ProtoMessage()               {}
-func (*TypeResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
+func (*TypeResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
 
 func (m *TypeResponse) GetType() string {
 	if m != nil {
@@ -257,23 +353,43 @@ func (m *TypeResponse) GetType() string {
 	return ""
 }
 
+type RotateRootCredentialsResponse struct {
+	Config []byte `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
+}
+
+func (m *RotateRootCredentialsResponse) Reset()                    { *m = RotateRootCredentialsResponse{} }
+func (m *RotateRootCredentialsResponse) String() string            { return proto.CompactTextString(m) }
+func (*RotateRootCredentialsResponse) ProtoMessage()               {}
+func (*RotateRootCredentialsResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11} }
+
+func (m *RotateRootCredentialsResponse) GetConfig() []byte {
+	if m != nil {
+		return m.Config
+	}
+	return nil
+}
+
 type Empty struct {
 }
 
 func (m *Empty) Reset()                    { *m = Empty{} }
 func (m *Empty) String() string            { return proto.CompactTextString(m) }
 func (*Empty) ProtoMessage()               {}
-func (*Empty) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
+func (*Empty) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{12} }
 
 func init() {
 	proto.RegisterType((*InitializeRequest)(nil), "dbplugin.InitializeRequest")
+	proto.RegisterType((*InitRequest)(nil), "dbplugin.InitRequest")
 	proto.RegisterType((*CreateUserRequest)(nil), "dbplugin.CreateUserRequest")
 	proto.RegisterType((*RenewUserRequest)(nil), "dbplugin.RenewUserRequest")
 	proto.RegisterType((*RevokeUserRequest)(nil), "dbplugin.RevokeUserRequest")
+	proto.RegisterType((*RotateRootCredentialsRequest)(nil), "dbplugin.RotateRootCredentialsRequest")
 	proto.RegisterType((*Statements)(nil), "dbplugin.Statements")
 	proto.RegisterType((*UsernameConfig)(nil), "dbplugin.UsernameConfig")
+	proto.RegisterType((*InitResponse)(nil), "dbplugin.InitResponse")
 	proto.RegisterType((*CreateUserResponse)(nil), "dbplugin.CreateUserResponse")
 	proto.RegisterType((*TypeResponse)(nil), "dbplugin.TypeResponse")
+	proto.RegisterType((*RotateRootCredentialsResponse)(nil), "dbplugin.RotateRootCredentialsResponse")
 	proto.RegisterType((*Empty)(nil), "dbplugin.Empty")
 }
 
@@ -292,8 +408,10 @@ type DatabaseClient interface {
 	CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*CreateUserResponse, error)
 	RenewUser(ctx context.Context, in *RenewUserRequest, opts ...grpc.CallOption) (*Empty, error)
 	RevokeUser(ctx context.Context, in *RevokeUserRequest, opts ...grpc.CallOption) (*Empty, error)
-	Initialize(ctx context.Context, in *InitializeRequest, opts ...grpc.CallOption) (*Empty, error)
+	RotateRootCredentials(ctx context.Context, in *RotateRootCredentialsRequest, opts ...grpc.CallOption) (*RotateRootCredentialsResponse, error)
+	Init(ctx context.Context, in *InitRequest, opts ...grpc.CallOption) (*InitResponse, error)
 	Close(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error)
+	Initialize(ctx context.Context, in *InitializeRequest, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type databaseClient struct {
@@ -340,9 +458,18 @@ func (c *databaseClient) RevokeUser(ctx context.Context, in *RevokeUserRequest, 
 	return out, nil
 }
 
-func (c *databaseClient) Initialize(ctx context.Context, in *InitializeRequest, opts ...grpc.CallOption) (*Empty, error) {
-	out := new(Empty)
-	err := grpc.Invoke(ctx, "/dbplugin.Database/Initialize", in, out, c.cc, opts...)
+func (c *databaseClient) RotateRootCredentials(ctx context.Context, in *RotateRootCredentialsRequest, opts ...grpc.CallOption) (*RotateRootCredentialsResponse, error) {
+	out := new(RotateRootCredentialsResponse)
+	err := grpc.Invoke(ctx, "/dbplugin.Database/RotateRootCredentials", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *databaseClient) Init(ctx context.Context, in *InitRequest, opts ...grpc.CallOption) (*InitResponse, error) {
+	out := new(InitResponse)
+	err := grpc.Invoke(ctx, "/dbplugin.Database/Init", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -358,6 +485,15 @@ func (c *databaseClient) Close(ctx context.Context, in *Empty, opts ...grpc.Call
 	return out, nil
 }
 
+func (c *databaseClient) Initialize(ctx context.Context, in *InitializeRequest, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := grpc.Invoke(ctx, "/dbplugin.Database/Initialize", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Server API for Database service
 
 type DatabaseServer interface {
@@ -365,8 +501,10 @@ type DatabaseServer interface {
 	CreateUser(context.Context, *CreateUserRequest) (*CreateUserResponse, error)
 	RenewUser(context.Context, *RenewUserRequest) (*Empty, error)
 	RevokeUser(context.Context, *RevokeUserRequest) (*Empty, error)
-	Initialize(context.Context, *InitializeRequest) (*Empty, error)
+	RotateRootCredentials(context.Context, *RotateRootCredentialsRequest) (*RotateRootCredentialsResponse, error)
+	Init(context.Context, *InitRequest) (*InitResponse, error)
 	Close(context.Context, *Empty) (*Empty, error)
+	Initialize(context.Context, *InitializeRequest) (*Empty, error)
 }
 
 func RegisterDatabaseServer(s *grpc.Server, srv DatabaseServer) {
@@ -445,20 +583,38 @@ func _Database_RevokeUser_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Database_Initialize_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(InitializeRequest)
+func _Database_RotateRootCredentials_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RotateRootCredentialsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DatabaseServer).Initialize(ctx, in)
+		return srv.(DatabaseServer).RotateRootCredentials(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/dbplugin.Database/Initialize",
+		FullMethod: "/dbplugin.Database/RotateRootCredentials",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DatabaseServer).Initialize(ctx, req.(*InitializeRequest))
+		return srv.(DatabaseServer).RotateRootCredentials(ctx, req.(*RotateRootCredentialsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Database_Init_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InitRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DatabaseServer).Init(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/dbplugin.Database/Init",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DatabaseServer).Init(ctx, req.(*InitRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -477,6 +633,24 @@ func _Database_Close_Handler(srv interface{}, ctx context.Context, dec func(inte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DatabaseServer).Close(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Database_Initialize_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InitializeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DatabaseServer).Initialize(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/dbplugin.Database/Initialize",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DatabaseServer).Initialize(ctx, req.(*InitializeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -502,12 +676,20 @@ var _Database_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Database_RevokeUser_Handler,
 		},
 		{
-			MethodName: "Initialize",
-			Handler:    _Database_Initialize_Handler,
+			MethodName: "RotateRootCredentials",
+			Handler:    _Database_RotateRootCredentials_Handler,
+		},
+		{
+			MethodName: "Init",
+			Handler:    _Database_Init_Handler,
 		},
 		{
 			MethodName: "Close",
 			Handler:    _Database_Close_Handler,
+		},
+		{
+			MethodName: "Initialize",
+			Handler:    _Database_Initialize_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -517,40 +699,49 @@ var _Database_serviceDesc = grpc.ServiceDesc{
 func init() { proto.RegisterFile("builtin/logical/database/dbplugin/database.proto", fileDescriptor0) }
 
 var fileDescriptor0 = []byte{
-	// 548 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x54, 0xcf, 0x6e, 0xd3, 0x4e,
-	0x10, 0x96, 0xdb, 0xb4, 0xbf, 0x64, 0x5a, 0x35, 0xc9, 0xfe, 0x4a, 0x15, 0x19, 0x24, 0x22, 0x9f,
-	0x5a, 0x21, 0xd9, 0xa8, 0xe5, 0x80, 0xb8, 0xa1, 0x14, 0x21, 0x24, 0x94, 0x83, 0x69, 0x25, 0x6e,
-	0xd1, 0xda, 0x99, 0x44, 0xab, 0x3a, 0xbb, 0xc6, 0xbb, 0x4e, 0x09, 0x4f, 0xc3, 0xe3, 0x70, 0xe2,
-	0x1d, 0x78, 0x13, 0xe4, 0x75, 0xd6, 0xbb, 0xf9, 0x73, 0xab, 0xb8, 0x79, 0x66, 0xbe, 0x6f, 0xf6,
-	0xf3, 0xb7, 0x33, 0x0b, 0xaf, 0x93, 0x92, 0x65, 0x8a, 0xf1, 0x28, 0x13, 0x73, 0x96, 0xd2, 0x2c,
-	0x9a, 0x52, 0x45, 0x13, 0x2a, 0x31, 0x9a, 0x26, 0x79, 0x56, 0xce, 0x19, 0x6f, 0x32, 0x61, 0x5e,
-	0x08, 0x25, 0x48, 0xdb, 0x14, 0xfc, 0x97, 0x73, 0x21, 0xe6, 0x19, 0x46, 0x3a, 0x9f, 0x94, 0xb3,
-	0x48, 0xb1, 0x05, 0x4a, 0x45, 0x17, 0x79, 0x0d, 0x0d, 0xbe, 0x42, 0xff, 0x13, 0x67, 0x8a, 0xd1,
-	0x8c, 0xfd, 0xc0, 0x18, 0xbf, 0x95, 0x28, 0x15, 0xb9, 0x80, 0xe3, 0x54, 0xf0, 0x19, 0x9b, 0x0f,
-	0xbc, 0xa1, 0x77, 0x79, 0x1a, 0xaf, 0x23, 0xf2, 0x0a, 0xfa, 0x4b, 0x2c, 0xd8, 0x6c, 0x35, 0x49,
-	0x05, 0xe7, 0x98, 0x2a, 0x26, 0xf8, 0xe0, 0x60, 0xe8, 0x5d, 0xb6, 0xe3, 0x5e, 0x5d, 0x18, 0x35,
-	0xf9, 0xe0, 0x97, 0x07, 0xfd, 0x51, 0x81, 0x54, 0xe1, 0xbd, 0xc4, 0xc2, 0xb4, 0x7e, 0x03, 0x20,
-	0x15, 0x55, 0xb8, 0x40, 0xae, 0xa4, 0x6e, 0x7f, 0x72, 0x7d, 0x1e, 0x1a, 0xbd, 0xe1, 0x97, 0xa6,
-	0x16, 0x3b, 0x38, 0xf2, 0x1e, 0xba, 0xa5, 0xc4, 0x82, 0xd3, 0x05, 0x4e, 0xd6, 0xca, 0x0e, 0x34,
-	0x75, 0x60, 0xa9, 0xf7, 0x6b, 0xc0, 0x48, 0xd7, 0xe3, 0xb3, 0x72, 0x23, 0x26, 0xef, 0x00, 0xf0,
-	0x7b, 0xce, 0x0a, 0xaa, 0x45, 0x1f, 0x6a, 0xb6, 0x1f, 0xd6, 0xf6, 0x84, 0xc6, 0x9e, 0xf0, 0xce,
-	0xd8, 0x13, 0x3b, 0xe8, 0xe0, 0xa7, 0x07, 0xbd, 0x18, 0x39, 0x3e, 0x3e, 0xfd, 0x4f, 0x7c, 0x68,
-	0x1b, 0x61, 0xfa, 0x17, 0x3a, 0x71, 0x13, 0x3f, 0x49, 0x22, 0x42, 0x3f, 0xc6, 0xa5, 0x78, 0xc0,
-	0x7f, 0x2a, 0x31, 0xf8, 0xed, 0x01, 0x58, 0x1a, 0x89, 0xe0, 0xff, 0xb4, 0xba, 0x62, 0x26, 0xf8,
-	0x64, 0xeb, 0xa4, 0x4e, 0x4c, 0x4c, 0xc9, 0x21, 0xdc, 0xc0, 0xb3, 0x02, 0x97, 0x22, 0xdd, 0xa1,
-	0xd4, 0x07, 0x9d, 0xdb, 0xe2, 0xe6, 0x29, 0x85, 0xc8, 0xb2, 0x84, 0xa6, 0x0f, 0x2e, 0xe5, 0xb0,
-	0x3e, 0xc5, 0x94, 0x1c, 0xc2, 0x15, 0xf4, 0x8a, 0xea, 0xba, 0x5c, 0x74, 0x4b, 0xa3, 0xbb, 0x3a,
-	0x6f, 0xa1, 0xc1, 0x18, 0xce, 0x36, 0x07, 0x87, 0x0c, 0xe1, 0xe4, 0x96, 0xc9, 0x3c, 0xa3, 0xab,
-	0x71, 0xe5, 0x40, 0xfd, 0x2f, 0x6e, 0xaa, 0x32, 0x28, 0x16, 0x19, 0x8e, 0x1d, 0x83, 0x4c, 0x1c,
-	0x7c, 0x06, 0xe2, 0x0e, 0xbd, 0xcc, 0x05, 0x97, 0xb8, 0x61, 0xa9, 0xb7, 0x75, 0xeb, 0x3e, 0xb4,
-	0x73, 0x2a, 0xe5, 0xa3, 0x28, 0xa6, 0xa6, 0x9b, 0x89, 0x83, 0x00, 0x4e, 0xef, 0x56, 0x39, 0x36,
-	0x7d, 0x08, 0xb4, 0xd4, 0x2a, 0x37, 0x3d, 0xf4, 0x77, 0xf0, 0x1f, 0x1c, 0x7d, 0x58, 0xe4, 0x6a,
-	0x75, 0xfd, 0xe7, 0x00, 0xda, 0xb7, 0xeb, 0x87, 0x80, 0x44, 0xd0, 0xaa, 0x98, 0xa4, 0x6b, 0xaf,
-	0x5b, 0xa3, 0xfc, 0x0b, 0x9b, 0xd8, 0x68, 0xfd, 0x11, 0xc0, 0x0a, 0x27, 0xcf, 0x2d, 0x6a, 0x67,
-	0x87, 0xfd, 0x17, 0xfb, 0x8b, 0xeb, 0x46, 0x6f, 0xa1, 0xd3, 0xec, 0x0a, 0xf1, 0x2d, 0x74, 0x7b,
-	0x81, 0xfc, 0x6d, 0x69, 0xd5, 0xfc, 0xdb, 0x19, 0x76, 0x25, 0xec, 0x4c, 0xf6, 0x5e, 0xae, 0x7d,
-	0xc7, 0x5c, 0xee, 0xce, 0xeb, 0xb6, 0xcb, 0xbd, 0x82, 0xa3, 0x51, 0x26, 0xe4, 0x1e, 0xb3, 0xb6,
-	0x13, 0xc9, 0xb1, 0x5e, 0xc3, 0x9b, 0xbf, 0x01, 0x00, 0x00, 0xff, 0xff, 0x8c, 0x55, 0x84, 0x56,
-	0x94, 0x05, 0x00, 0x00,
+	// 694 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x55, 0x51, 0x4f, 0x13, 0x4f,
+	0x10, 0xcf, 0xb5, 0x05, 0xda, 0x81, 0x00, 0xdd, 0x3f, 0x90, 0xcb, 0xfd, 0x51, 0xc9, 0x3d, 0x20,
+	0xc6, 0xd8, 0x1a, 0xd0, 0x60, 0x78, 0xd0, 0x68, 0x31, 0xc6, 0xc4, 0xf0, 0xb0, 0xc0, 0x9b, 0x09,
+	0xd9, 0xb6, 0x43, 0xdd, 0x70, 0xbd, 0x3d, 0x6f, 0xb7, 0x60, 0xfd, 0x02, 0xfa, 0x31, 0xfc, 0x38,
+	0x3e, 0xfa, 0x91, 0xcc, 0x6d, 0x6f, 0x6f, 0xb7, 0x3d, 0x90, 0x07, 0xf4, 0xed, 0x66, 0x67, 0x7e,
+	0x33, 0xbf, 0xf9, 0xed, 0xec, 0x1c, 0x3c, 0xed, 0x8e, 0x78, 0xa4, 0x78, 0xdc, 0x8e, 0xc4, 0x80,
+	0xf7, 0x58, 0xd4, 0xee, 0x33, 0xc5, 0xba, 0x4c, 0x62, 0xbb, 0xdf, 0x4d, 0xa2, 0xd1, 0x80, 0xc7,
+	0xc5, 0x49, 0x2b, 0x49, 0x85, 0x12, 0xa4, 0x6e, 0x1c, 0xc1, 0x83, 0x81, 0x10, 0x83, 0x08, 0xdb,
+	0xfa, 0xbc, 0x3b, 0x3a, 0x6f, 0x2b, 0x3e, 0x44, 0xa9, 0xd8, 0x30, 0x99, 0x84, 0x86, 0x1f, 0xa1,
+	0xf9, 0x3e, 0xe6, 0x8a, 0xb3, 0x88, 0x7f, 0x45, 0x8a, 0x9f, 0x47, 0x28, 0x15, 0xd9, 0x80, 0xf9,
+	0x9e, 0x88, 0xcf, 0xf9, 0xc0, 0xf7, 0xb6, 0xbc, 0x9d, 0x25, 0x9a, 0x5b, 0xe4, 0x31, 0x34, 0x2f,
+	0x31, 0xe5, 0xe7, 0xe3, 0xb3, 0x9e, 0x88, 0x63, 0xec, 0x29, 0x2e, 0x62, 0xbf, 0xb2, 0xe5, 0xed,
+	0xd4, 0xe9, 0xea, 0xc4, 0xd1, 0x29, 0xce, 0x0f, 0x2a, 0xbe, 0x17, 0x52, 0x58, 0xcc, 0xb2, 0xff,
+	0xcd, 0xbc, 0xe1, 0x4f, 0x0f, 0x9a, 0x9d, 0x14, 0x99, 0xc2, 0x53, 0x89, 0xa9, 0x49, 0xfd, 0x0c,
+	0x40, 0x2a, 0xa6, 0x70, 0x88, 0xb1, 0x92, 0x3a, 0xfd, 0xe2, 0xee, 0x5a, 0xcb, 0xe8, 0xd0, 0x3a,
+	0x2e, 0x7c, 0xd4, 0x89, 0x23, 0xaf, 0x61, 0x65, 0x24, 0x31, 0x8d, 0xd9, 0x10, 0xcf, 0x72, 0x66,
+	0x15, 0x0d, 0xf5, 0x2d, 0xf4, 0x34, 0x0f, 0xe8, 0x68, 0x3f, 0x5d, 0x1e, 0x4d, 0xd9, 0xe4, 0x00,
+	0x00, 0xbf, 0x24, 0x3c, 0x65, 0x9a, 0x74, 0x55, 0xa3, 0x83, 0xd6, 0x44, 0xf6, 0x96, 0x91, 0xbd,
+	0x75, 0x62, 0x64, 0xa7, 0x4e, 0x74, 0xf8, 0xc3, 0x83, 0x55, 0x8a, 0x31, 0x5e, 0xdd, 0xbd, 0x93,
+	0x00, 0xea, 0x86, 0x98, 0x6e, 0xa1, 0x41, 0x0b, 0xfb, 0x4e, 0x14, 0x11, 0x9a, 0x14, 0x2f, 0xc5,
+	0x05, 0xfe, 0x53, 0x8a, 0xe1, 0x4b, 0xd8, 0xa4, 0x22, 0x0b, 0xa5, 0x42, 0xa8, 0x4e, 0x8a, 0x7d,
+	0x8c, 0xb3, 0x99, 0x94, 0xa6, 0xe2, 0xfd, 0x99, 0x8a, 0xd5, 0x9d, 0x86, 0x9b, 0x3b, 0xfc, 0x55,
+	0x01, 0xb0, 0x65, 0xc9, 0x1e, 0xfc, 0xd7, 0xcb, 0x46, 0x84, 0x8b, 0xf8, 0x6c, 0x86, 0x69, 0xe3,
+	0x4d, 0xc5, 0xf7, 0x28, 0x31, 0x6e, 0x07, 0xb4, 0x0f, 0xeb, 0x29, 0x5e, 0x8a, 0x5e, 0x09, 0x56,
+	0x29, 0x60, 0x6b, 0x36, 0x60, 0xba, 0x5a, 0x2a, 0xa2, 0xa8, 0xcb, 0x7a, 0x17, 0x2e, 0xac, 0x6a,
+	0xab, 0x19, 0xb7, 0x03, 0x7a, 0x02, 0xab, 0x69, 0x76, 0xf5, 0x2e, 0xa2, 0x56, 0x20, 0x56, 0xb4,
+	0xef, 0x78, 0x4a, 0x3c, 0x43, 0xd9, 0x9f, 0xd3, 0xed, 0x17, 0x76, 0x26, 0x8e, 0xe5, 0xe5, 0xcf,
+	0x4f, 0xc4, 0xb1, 0x27, 0x19, 0xd6, 0x10, 0xf0, 0x17, 0x26, 0x58, 0x63, 0x13, 0x1f, 0x16, 0x74,
+	0x29, 0x16, 0xf9, 0x75, 0xed, 0x32, 0x66, 0x78, 0x04, 0xcb, 0xd3, 0xa3, 0x4f, 0xb6, 0x60, 0xf1,
+	0x90, 0xcb, 0x24, 0x62, 0xe3, 0xa3, 0xec, 0x0e, 0xb5, 0x9a, 0xd4, 0x3d, 0xca, 0x2a, 0x51, 0x11,
+	0xe1, 0x91, 0x73, 0xc5, 0xc6, 0x0e, 0xb7, 0x61, 0x69, 0xb2, 0x0b, 0x64, 0x22, 0x62, 0x89, 0x37,
+	0x2d, 0x83, 0xf0, 0x03, 0x10, 0xf7, 0x79, 0xe7, 0xd1, 0xee, 0xf0, 0x78, 0x33, 0xf3, 0x1d, 0x40,
+	0x3d, 0x61, 0x52, 0x5e, 0x89, 0xb4, 0x6f, 0xaa, 0x1a, 0x3b, 0x0c, 0x61, 0xe9, 0x64, 0x9c, 0x60,
+	0x91, 0x87, 0x40, 0x4d, 0x8d, 0x13, 0x93, 0x43, 0x7f, 0x87, 0xfb, 0x70, 0xef, 0x86, 0xe1, 0xbb,
+	0x85, 0xea, 0x02, 0xcc, 0xbd, 0x1d, 0x26, 0x6a, 0xbc, 0xfb, 0xad, 0x06, 0xf5, 0xc3, 0x7c, 0x07,
+	0x93, 0x36, 0xd4, 0xb2, 0x92, 0x64, 0xc5, 0xbe, 0x08, 0x1d, 0x15, 0x6c, 0xd8, 0x83, 0x29, 0x4e,
+	0xef, 0x00, 0x6c, 0xc7, 0xe4, 0x7f, 0x1b, 0x55, 0x5a, 0x73, 0xc1, 0xe6, 0xf5, 0xce, 0x3c, 0xd1,
+	0x0b, 0x68, 0x14, 0xeb, 0x84, 0x04, 0x36, 0x74, 0x76, 0xc7, 0x04, 0xb3, 0xd4, 0xb2, 0x15, 0x61,
+	0x9f, 0xb9, 0x4b, 0xa1, 0xf4, 0xf8, 0xcb, 0xd8, 0x4f, 0xb0, 0x7e, 0xad, 0x7c, 0x64, 0xdb, 0x49,
+	0xf3, 0x87, 0xc7, 0x1d, 0x3c, 0xbc, 0x35, 0x2e, 0xef, 0xef, 0x39, 0xd4, 0xb2, 0x11, 0x22, 0xeb,
+	0x16, 0xe0, 0xfc, 0x5e, 0x5c, 0x7d, 0xa7, 0x26, 0xed, 0x11, 0xcc, 0x75, 0x22, 0x21, 0xaf, 0xb9,
+	0x91, 0x52, 0x2f, 0xaf, 0x00, 0xec, 0xef, 0xd0, 0xd5, 0xa1, 0xf4, 0x93, 0x2c, 0x61, 0xc3, 0xea,
+	0xf7, 0x8a, 0xd7, 0x9d, 0xd7, 0xfb, 0x74, 0xef, 0x77, 0x00, 0x00, 0x00, 0xff, 0xff, 0x16, 0x83,
+	0xe7, 0x77, 0xb5, 0x07, 0x00, 0x00,
 }

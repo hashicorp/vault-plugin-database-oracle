@@ -376,7 +376,7 @@ import (
 	"math"
 	"reflect"
 	"regexp"
-	"runtime"
+	//"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -400,15 +400,16 @@ ORA-01034: ORACLE not available
 var badConnCodes = []string{"ORA-03114", "ORA-01012", "ORA-03113", "ORA-12528", "ORA-12537", "ORA-01033", "ORA-01034"}
 
 type DSN struct {
-	Connect              string
-	Username             string
-	Password             string
-	prefetch_rows        uint32
-	prefetch_memory      uint32
-	Location             *time.Location
-	transactionMode      C.ub4
-	enableQMPlaceholders bool
-	operationMode        C.ub4
+	Connect                string
+	Username               string
+	Password               string
+	prefetch_rows          uint32
+	prefetch_memory        uint32
+	Location               *time.Location
+	transactionMode        C.ub4
+	enableQMPlaceholders   bool
+	operationMode          C.ub4
+	externalauthentication bool
 }
 
 func init() {
@@ -532,6 +533,8 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 			switch v[0] {
 			case "SYSDBA", "sysdba":
 				dsn.operationMode = C.OCI_SYSDBA
+			case "SYSASM", "sysasm":
+				dsn.operationMode = C.OCI_SYSASM
 			case "SYSOPER", "sysoper":
 				dsn.operationMode = C.OCI_SYSOPER
 			default:
@@ -539,6 +542,10 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 			}
 
 		}
+	}
+
+	if len(dsn.Username)+len(dsn.Password)+len(dsn.Connect) == 0 {
+		dsn.externalauthentication = true
 	}
 	return dsn, nil
 }
@@ -637,7 +644,7 @@ func (c *OCI8Conn) query(ctx context.Context, query string, args []namedValue) (
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.(*OCI8Stmt).query(ctx, args)
+	rows, err := s.(*OCI8Stmt).query(ctx, args, true)
 	if err != nil && err != driver.ErrSkip {
 		s.Close()
 		return nil, err
@@ -741,12 +748,21 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 			conn.srv = rv.ptr
 		}
 
-		C.WrapOCIServerAttach(
-			(*C.OCIServer)(conn.srv),
-			(*C.OCIError)(conn.err),
-			(*C.text)(unsafe.Pointer(phost)),
-			C.ub4(len(dsn.Connect)),
-			C.OCI_DEFAULT)
+		if dsn.externalauthentication {
+			C.WrapOCIServerAttach(
+				(*C.OCIServer)(conn.srv),
+				(*C.OCIError)(conn.err),
+				nil,
+				0,
+				C.OCI_DEFAULT)
+		} else {
+			C.WrapOCIServerAttach(
+				(*C.OCIServer)(conn.srv),
+				(*C.OCIError)(conn.err),
+				(*C.text)(unsafe.Pointer(phost)),
+				C.ub4(len(dsn.Connect)),
+				C.OCI_DEFAULT)
+		}
 
 		if rv := C.WrapOCIHandleAlloc(
 			conn.env,
@@ -777,35 +793,45 @@ func (d *OCI8Driver) Open(dsnString string) (connection driver.Conn, err error) 
 			conn.usr_session = rv.ptr
 		}
 
-		//  set username attribute in user session handle
-		if rv := C.OCIAttrSet(
-			conn.usr_session,
-			C.OCI_HTYPE_SESSION,
-			(unsafe.Pointer(puser)),
-			C.ub4(len(dsn.Username)),
-			C.OCI_ATTR_USERNAME,
-			(*C.OCIError)(conn.err)); rv != C.OCI_SUCCESS {
-			return nil, ociGetError(rv, conn.err)
-		}
+		if !dsn.externalauthentication {
+			//  set username attribute in user session handle
+			if rv := C.OCIAttrSet(
+				conn.usr_session,
+				C.OCI_HTYPE_SESSION,
+				(unsafe.Pointer(puser)),
+				C.ub4(len(dsn.Username)),
+				C.OCI_ATTR_USERNAME,
+				(*C.OCIError)(conn.err)); rv != C.OCI_SUCCESS {
+				return nil, ociGetError(rv, conn.err)
+			}
 
-		// set password attribute in the user session handle
-		if rv := C.OCIAttrSet(
-			conn.usr_session,
-			C.OCI_HTYPE_SESSION,
-			(unsafe.Pointer(ppass)),
-			C.ub4(len(dsn.Password)),
-			C.OCI_ATTR_PASSWORD,
-			(*C.OCIError)(conn.err)); rv != C.OCI_SUCCESS {
-			return nil, ociGetError(rv, conn.err)
-		}
+			// set password attribute in the user session handle
+			if rv := C.OCIAttrSet(
+				conn.usr_session,
+				C.OCI_HTYPE_SESSION,
+				(unsafe.Pointer(ppass)),
+				C.ub4(len(dsn.Password)),
+				C.OCI_ATTR_PASSWORD,
+				(*C.OCIError)(conn.err)); rv != C.OCI_SUCCESS {
+				return nil, ociGetError(rv, conn.err)
+			}
 
-		// begin the session
-		C.WrapOCISessionBegin(
-			(*C.OCISvcCtx)(conn.svc),
-			(*C.OCIError)(conn.err),
-			(*C.OCISession)(conn.usr_session),
-			C.OCI_CRED_RDBMS,
-			conn.operationMode)
+			// begin the session
+			C.WrapOCISessionBegin(
+				(*C.OCISvcCtx)(conn.svc),
+				(*C.OCIError)(conn.err),
+				(*C.OCISession)(conn.usr_session),
+				C.OCI_CRED_RDBMS,
+				conn.operationMode)
+		} else {
+			// external authentication
+			C.WrapOCISessionBegin(
+				(*C.OCISvcCtx)(conn.svc),
+				(*C.OCIError)(conn.err),
+				(*C.OCISession)(conn.usr_session),
+				C.OCI_CRED_EXT,
+				conn.operationMode)
+		}
 
 		// set the user session attribute in the service context handle
 		if rv := C.OCIAttrSet(
@@ -928,7 +954,7 @@ func (c *OCI8Conn) prepare(ctx context.Context, query string) (driver.Stmt, erro
 	}
 
 	ss := &OCI8Stmt{c: c, s: s, bp: (**C.OCIBind)(bp), defp: (**C.OCIDefine)(defp)}
-	runtime.SetFinalizer(ss, (*OCI8Stmt).Close)
+	//runtime.SetFinalizer(ss, (*OCI8Stmt).Close)
 	return ss, nil
 }
 
@@ -938,7 +964,7 @@ func (s *OCI8Stmt) Close() error {
 	}
 	s.closed = true
 
-	runtime.SetFinalizer(s, nil)
+	//runtime.SetFinalizer(s, nil)
 	C.OCIHandleFree(
 		s.s,
 		C.OCI_HTYPE_STMT)
@@ -983,12 +1009,17 @@ func getInt64(p unsafe.Pointer) int64 {
 	return int64(*(*C.sb8)(p))
 }
 
+func getUint64(p unsafe.Pointer) uint64 {
+	return uint64(*(*C.sb8)(p))
+}
+
 func outputBoundParameters(boundParameters []oci8bind) {
 	for _, col := range boundParameters {
 		if col.pbuf != nil {
 			switch v := col.out.(type) {
 			case *string:
 				*v = C.GoString((*C.char)(col.pbuf))
+
 			case *int:
 				*v = int(getInt64(col.pbuf))
 			case *int64:
@@ -999,6 +1030,17 @@ func outputBoundParameters(boundParameters []oci8bind) {
 				*v = int16(getInt64(col.pbuf))
 			case *int8:
 				*v = int8(getInt64(col.pbuf))
+
+			case *uint:
+				*v = uint(getUint64(col.pbuf))
+			case *uint64:
+				*v = getUint64(col.pbuf)
+			case *uint32:
+				*v = uint32(getUint64(col.pbuf))
+			case *uint16:
+				*v = uint16(getUint64(col.pbuf))
+			case *uint8:
+				*v = uint8(getUint64(col.pbuf))
 
 			case *float64:
 
@@ -1043,7 +1085,7 @@ func (s *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 		var sbind oci8bind
 
 		vv := uv.Value
-		if out, ok := vv.(outValue); ok {
+		if out, ok := handleOutput(vv); ok {
 			sbind.out = out.Dest
 			vv, err = driver.DefaultParameterConverter.ConvertValue(out.Dest)
 			if err != nil {
@@ -1168,9 +1210,25 @@ func (s *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 			sbind.pbuf = unsafe.Pointer((*C.char)(pt))
 
 		case string:
-			sbind.kind = C.SQLT_AFC // don't trim strings !!!
-			sbind.pbuf = unsafe.Pointer(C.CString(v))
-			sbind.clen = C.sb4(len(v))
+			if sbind.out != nil {
+				sbind.kind = C.SQLT_STR
+				sbind.clen = 2048 //4 * C.sb4(len(*v))
+				sbind.pbuf = unsafe.Pointer((*C.char)(C.malloc(C.size_t(sbind.clen))))
+			} else {
+				sbind.kind = C.SQLT_AFC // don't trim strings !!!
+				sbind.pbuf = unsafe.Pointer(C.CString(v))
+				sbind.clen = C.sb4(len(v))
+			}
+
+		case int:
+			sbind.kind = C.SQLT_INT
+			sbind.clen = C.sb4(4)
+			sbind.pbuf = unsafe.Pointer((*C.char)(C.malloc(4)))
+			buf := (*[1 << 30]byte)(sbind.pbuf)[0:4]
+			buf[0] = byte(v & 0x0ff)
+			buf[1] = byte(v >> 8 & 0x0ff)
+			buf[2] = byte(v >> 16 & 0x0ff)
+			buf[3] = byte(v >> 24 & 0x0ff)
 
 		case int64:
 			sbind.kind = C.SQLT_INT
@@ -1226,6 +1284,8 @@ func (s *OCI8Stmt) bind(args []namedValue) ([]oci8bind, error) {
 				0,
 				nil,
 				C.OCI_DEFAULT); rv != C.OCI_SUCCESS {
+				defer freeBoundParameters(s.pbind)
+				return nil, ociGetError(rv, s.c.err)
 			}
 		} else {
 			if rv := C.OCIBindByPos(
@@ -1259,10 +1319,10 @@ func (s *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 			Value:   v,
 		}
 	}
-	return s.query(context.Background(), list)
+	return s.query(context.Background(), list, false)
 }
 
-func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (driver.Rows, error) {
+func (s *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bool) (driver.Rows, error) {
 	var (
 		fbp []oci8bind
 		err error
@@ -1490,7 +1550,7 @@ func (s *OCI8Stmt) query(ctx context.Context, args []namedValue) (driver.Rows, e
 		indrlenptr: indrlenptr,
 		closed:     false,
 		done:       make(chan struct{}),
-		cls:        false,
+		cls:        closeRows,
 	}
 
 	go func() {
