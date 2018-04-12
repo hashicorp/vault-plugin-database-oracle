@@ -35,11 +35,19 @@ const sessionQuerySQL = `SELECT sid, serial#, username FROM v$session WHERE user
 const sessionKillSQL = `ALTER SYSTEM KILL SESSION '%d,%d' IMMEDIATE`
 
 type Oracle struct {
-	connutil.ConnectionProducer
+	*connutil.SQLConnectionProducer
 	credsutil.CredentialsProducer
 }
 
-func New() *Oracle {
+// New implements builtinplugins.BuiltinFactory
+func New() (interface{}, error) {
+	db := new()
+	// Wrap the plugin with middleware to sanitize errors
+	dbType := dbplugin.NewDatabaseErrorSanitizerMiddleware(db, db.SecretValues)
+	return dbType, nil
+}
+
+func new() *Oracle {
 	connProducer := &connutil.SQLConnectionProducer{}
 	connProducer.Type = oracleTypeName
 
@@ -53,8 +61,8 @@ func New() *Oracle {
 	}
 
 	dbType := &Oracle{
-		ConnectionProducer:  connProducer,
-		CredentialsProducer: credsProducer,
+		SQLConnectionProducer: connProducer,
+		CredentialsProducer:   credsProducer,
 	}
 
 	return dbType
@@ -74,7 +82,9 @@ func (o *Oracle) Type() (string, error) {
 }
 
 func (o *Oracle) CreateUser(ctx context.Context, statements dbplugin.Statements, usernameConfig dbplugin.UsernameConfig, expiration time.Time) (username string, password string, err error) {
-	if statements.CreationStatements == "" {
+	statements = dbutil.StatementCompatibilityHelper(statements)
+
+	if len(statements.Creation) == 0 {
 		return "", "", dbutil.ErrEmptyCreationStatement
 	}
 
@@ -115,25 +125,27 @@ func (o *Oracle) CreateUser(ctx context.Context, statements dbplugin.Statements,
 	}()
 
 	// Execute each query
-	for _, query := range strutil.ParseArbitraryStringSlice(statements.CreationStatements, ";") {
-		query = strings.TrimSpace(query)
-		if len(query) == 0 {
-			continue
-		}
+	for _, stmt := range statements.Creation {
+		for _, query := range strutil.ParseArbitraryStringSlice(stmt, ";") {
+			query = strings.TrimSpace(query)
+			if len(query) == 0 {
+				continue
+			}
 
-		stmt, err := tx.Prepare(dbutil.QueryHelper(query, map[string]string{
-			"name":       username,
-			"password":   password,
-			"expiration": expirationStr,
-		}))
-		if err != nil {
-			return "", "", err
+			stmt, err := tx.Prepare(dbutil.QueryHelper(query, map[string]string{
+				"name":       username,
+				"password":   password,
+				"expiration": expirationStr,
+			}))
+			if err != nil {
+				return "", "", err
 
-		}
-		defer stmt.Close()
-		if _, err := stmt.Exec(); err != nil {
-			return "", "", err
+			}
+			defer stmt.Close()
+			if _, err := stmt.Exec(); err != nil {
+				return "", "", err
 
+			}
 		}
 	}
 
@@ -166,26 +178,29 @@ func (o *Oracle) RevokeUser(ctx context.Context, statements dbplugin.Statements,
 		return err
 	}
 
-	revocationStatements := statements.RevocationStatements
-	if revocationStatements == "" {
-		revocationStatements = revocationSQL
+	statements = dbutil.StatementCompatibilityHelper(statements)
+	revocationStatements := statements.Revocation
+	if len(revocationStatements) == 0 {
+		revocationStatements = []string{revocationSQL}
 	}
 
 	// We can't use a transaction here, because Oracle treats DROP USER as a DDL statement, which commits immediately.
 	// Execute each query
-	for _, query := range strutil.ParseArbitraryStringSlice(revocationStatements, ";") {
-		query = strings.TrimSpace(query)
-		if len(query) == 0 {
-			continue
-		}
+	for _, stmt := range revocationStatements {
+		for _, query := range strutil.ParseArbitraryStringSlice(stmt, ";") {
+			query = strings.TrimSpace(query)
+			if len(query) == 0 {
+				continue
+			}
 
-		stmt, err := db.Prepare(strings.Replace(query, "{{name}}", username, -1))
-		if err != nil {
-			return err
-		}
-		defer stmt.Close()
-		if _, err := stmt.Exec(); err != nil {
-			return err
+			stmt, err := db.Prepare(strings.Replace(query, "{{name}}", username, -1))
+			if err != nil {
+				return err
+			}
+			defer stmt.Close()
+			if _, err := stmt.Exec(); err != nil {
+				return err
+			}
 		}
 	}
 
