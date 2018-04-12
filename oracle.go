@@ -3,6 +3,7 @@ package oracle
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -250,6 +251,6 @@ func (o *Oracle) getConnection(ctx context.Context) (*sql.DB, error) {
 	return db.(*sql.DB), nil
 }
 
-func (o *Oracle) RotateRootCredentials(ctx context.Context, statements []string) (config map[string]interface{}, err error) {
-	return
+func (o *Oracle) RotateRootCredentials(ctx context.Context, statements []string) (map[string]interface{}, error) {
+	return nil, errors.New("root credentaion rotation is not currently implemented in this database secrets engine")
 }
