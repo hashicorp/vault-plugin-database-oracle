@@ -206,7 +206,7 @@ func (o *Oracle) RevokeUser(ctx context.Context, statements dbplugin.Statements,
 			}
 
 			stmt, err := tx.PrepareContext(ctx, dbutil.QueryHelper(query, map[string]string{
-				"username": username,
+				"name": username,
 			}))
 			if err != nil {
 				return err
