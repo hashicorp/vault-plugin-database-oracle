@@ -10,7 +10,7 @@ For linux/amd64, pre-built binaries can be found at [the releases page](https://
 
 For other platforms, there are not currently pre-built binaries available.
 
-Before building, you will need to download the Oracle Instant Client library, which is available from [Oracle](http://www.oracle.com/technetwork/database/features/instant-client/index-097480.html). Download the SDK package to get the headers and download the Basic package to get the libraries for your platform.
+Before building, you will need to download the Oracle Instant Client library, which is available from [Oracle](http://www.oracle.com/technetwork/database/features/instant-client/index-097480.html). Download the SDK package to get the headers and download the Basic package to get the libraries for your platform. The libraries and headers should be installed at one of the standard locations for your platform (e.g. on macOS, `/usr/local/include`&`/usr/local/lib` or `~/include`&`~/lib`).
 
 Next, create a [`pkg-config`](https://www.freedesktop.org/wiki/Software/pkg-config/) file to point to the library. Create the file `oci8.pc` on your `PKG_CONFIG_PATH`.
 
@@ -35,6 +35,8 @@ Cflags: -I${includedir}
 
 Then, `git clone` this repository into your `$GOPATH` and `go build -o vault-plugin-database-oracle ./plugin` from the project directory.
 
+`make test` will run a basic test suite against a Docker version of Oracle.
+
 ## Installation
 
 The Vault plugin system is documented on the [Vault documentation site](https://www.vaultproject.io/docs/internals/plugins.html).
@@ -44,7 +46,8 @@ You will need to define a plugin directory using the `plugin_directory` configur
 Register the plugin using
 
 ```
-vault write sys/plugins/catalog/vault-plugin-database-oracle \ 
+vault write sys/plugins/catalog/vault-plugin-database-oracle \
     sha_256=<expected SHA256 Hex value of the plugin binary> \
     command="vault-plugin-database-oracle"
 ```
+
