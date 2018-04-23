@@ -12,6 +12,7 @@ import (
 
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/builtin/logical/database/dbplugin"
+	"github.com/hashicorp/vault/helper/dbtxn"
 	"github.com/hashicorp/vault/helper/strutil"
 	"github.com/hashicorp/vault/plugins"
 	"github.com/hashicorp/vault/plugins/helper/database/connutil"
@@ -136,19 +137,14 @@ func (o *Oracle) CreateUser(ctx context.Context, statements dbplugin.Statements,
 				continue
 			}
 
-			stmt, err := tx.Prepare(dbutil.QueryHelper(query, map[string]string{
+			m := map[string]string{
 				"name":       username,
 				"password":   password,
 				"expiration": expirationStr,
-			}))
-			if err != nil {
-				return "", "", err
-
 			}
-			defer stmt.Close()
-			if _, err := stmt.Exec(); err != nil {
-				return "", "", err
 
+			if err := dbtxn.ExecuteTxQuery(ctx, tx, m, query); err != nil {
+				return "", "", err
 			}
 		}
 	}
@@ -205,15 +201,11 @@ func (o *Oracle) RevokeUser(ctx context.Context, statements dbplugin.Statements,
 				continue
 			}
 
-			stmt, err := tx.PrepareContext(ctx, dbutil.QueryHelper(query, map[string]string{
+			m := map[string]string{
 				"name": username,
-			}))
-			if err != nil {
-				return err
 			}
 
-			defer stmt.Close()
-			if _, err := stmt.ExecContext(ctx); err != nil {
+			if err := dbtxn.ExecuteTxQuery(ctx, tx, m, query); err != nil {
 				return err
 			}
 		}
@@ -258,16 +250,13 @@ func (o *Oracle) RotateRootCredentials(ctx context.Context, statements []string)
 			if len(query) == 0 {
 				continue
 			}
-			stmt, err := tx.PrepareContext(ctx, dbutil.QueryHelper(query, map[string]string{
+
+			m := map[string]string{
 				"username": o.Username,
 				"password": password,
-			}))
-			if err != nil {
-				return nil, err
 			}
 
-			defer stmt.Close()
-			if _, err := stmt.ExecContext(ctx); err != nil {
+			if err := dbtxn.ExecuteTxQuery(ctx, tx, m, query); err != nil {
 				return nil, err
 			}
 		}
