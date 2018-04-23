@@ -14,6 +14,11 @@ import (
 	dockertest "gopkg.in/ory-am/dockertest.v3"
 )
 
+const (
+	defaultUser     = "system"
+	defaultPassword = "oracle"
+)
+
 func prepareOracleTestContainer(t *testing.T) (cleanup func(), connString string) {
 	if os.Getenv("ORACLE_DSN") != "" {
 		return func() {}, os.Getenv("ORACLE_DSN")
@@ -36,7 +41,7 @@ func prepareOracleTestContainer(t *testing.T) (cleanup func(), connString string
 		}
 	}
 
-	connString = fmt.Sprintf("system/oracle@localhost:%s/xe", resource.GetPort("1521/tcp"))
+	connString = fmt.Sprintf("%s/%s@localhost:%s/xe", defaultUser, defaultPassword, resource.GetPort("1521/tcp"))
 
 	// exponential backoff-retry
 	// the oracle container seems to take at least one minute to start, give us two
@@ -252,6 +257,56 @@ func TestOracle_RevokeUserWithCustomStatements(t *testing.T) {
 
 	if err := testCredentialsExist(connURL, username, password); err == nil {
 		t.Fatal("Credentials were not revoked")
+	}
+}
+
+func TestOracle_RotateRootCredentials(t *testing.T) {
+	testRotateRootCredentialsCore(t, false)
+	testRotateRootCredentialsCore(t, true)
+}
+
+func testRotateRootCredentialsCore(t *testing.T, custom bool) {
+	cleanup, connURL := prepareOracleTestContainer(t)
+	defer cleanup()
+
+	connectionDetails := map[string]interface{}{
+		"connection_url": connURL,
+		"username":       defaultUser,
+		"password":       defaultPassword,
+	}
+
+	db := new()
+
+	err := db.Initialize(context.Background(), connectionDetails, true)
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	err = testCredentialsExist(connURL, defaultUser, defaultPassword)
+	if err != nil {
+		t.Fatalf("unable to connect with original credentials: %v", err)
+	}
+
+	var rotateStatement []string
+	if custom {
+		rotateStatement = []string{`alter user {{username}} identified by {{password}}`}
+	}
+	newConf, err := db.RotateRootCredentials(context.Background(), rotateStatement)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if newConf["password"].(string) == defaultPassword {
+		t.Fatal("password was not updated")
+	}
+
+	err = testCredentialsExist(connURL, defaultUser, newConf["password"].(string))
+	if err != nil {
+		t.Fatalf("unable to connect with new credentials: %v", err)
+	}
+
+	err = db.Close()
+	if err != nil {
+		t.Fatalf("err: %s", err)
 	}
 }
 
