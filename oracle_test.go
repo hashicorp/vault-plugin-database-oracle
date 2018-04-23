@@ -1,6 +1,7 @@
 package oracle
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
@@ -10,8 +11,12 @@ import (
 	"github.com/tgulacsi/go/orahlp"
 
 	"github.com/hashicorp/vault/builtin/logical/database/dbplugin"
-	"github.com/hashicorp/vault/plugins/helper/database/connutil"
 	dockertest "gopkg.in/ory-am/dockertest.v3"
+)
+
+const (
+	defaultUser     = "system"
+	defaultPassword = "oracle"
 )
 
 func prepareOracleTestContainer(t *testing.T) (cleanup func(), connString string) {
@@ -36,7 +41,7 @@ func prepareOracleTestContainer(t *testing.T) (cleanup func(), connString string
 		}
 	}
 
-	connString = fmt.Sprintf("system/oracle@localhost:%s/xe", resource.GetPort("1521/tcp"))
+	connString = fmt.Sprintf("%s/%s@localhost:%s/xe", defaultUser, defaultPassword, resource.GetPort("1521/tcp"))
 
 	// exponential backoff-retry
 	// the oracle container seems to take at least one minute to start, give us two
@@ -64,14 +69,14 @@ func TestOracle_Initialize(t *testing.T) {
 		"connection_url": connURL,
 	}
 
-	db := New()
-	connProducer := db.ConnectionProducer.(*connutil.SQLConnectionProducer)
+	db := new()
 
-	err := db.Initialize(connectionDetails, true)
+	err := db.Initialize(context.Background(), connectionDetails, true)
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
 
+	connProducer := db.SQLConnectionProducer
 	if !connProducer.Initialized {
 		t.Fatal("Database should be initalized")
 	}
@@ -90,8 +95,9 @@ func TestOracle_CreateUser(t *testing.T) {
 		"connection_url": connURL,
 	}
 
-	db := New()
-	err := db.Initialize(connectionDetails, true)
+	db := new()
+	err := db.Initialize(context.Background(), connectionDetails, true)
+
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
@@ -102,7 +108,7 @@ func TestOracle_CreateUser(t *testing.T) {
 	}
 
 	// Test with no configured Creation Statement
-	_, _, err = db.CreateUser(dbplugin.Statements{}, usernameConfig, time.Now().Add(time.Minute))
+	_, _, err = db.CreateUser(context.Background(), dbplugin.Statements{}, usernameConfig, time.Now().Add(time.Minute))
 	if err == nil {
 		t.Fatal("Expected error when no creation statement is provided")
 	}
@@ -111,7 +117,7 @@ func TestOracle_CreateUser(t *testing.T) {
 		CreationStatements: testRole,
 	}
 
-	username, password, err := db.CreateUser(statements, usernameConfig, time.Now().Add(time.Minute))
+	username, password, err := db.CreateUser(context.Background(), statements, usernameConfig, time.Now().Add(time.Minute))
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
@@ -129,8 +135,9 @@ func TestOracle_RenewUser(t *testing.T) {
 		"connection_url": connURL,
 	}
 
-	db := New()
-	err := db.Initialize(connectionDetails, true)
+	db := new()
+
+	err := db.Initialize(context.Background(), connectionDetails, true)
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
@@ -144,7 +151,7 @@ func TestOracle_RenewUser(t *testing.T) {
 		CreationStatements: testRole,
 	}
 
-	username, password, err := db.CreateUser(statements, usernameConfig, time.Now().Add(2*time.Second))
+	username, password, err := db.CreateUser(context.Background(), statements, usernameConfig, time.Now().Add(2*time.Second))
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
@@ -153,7 +160,7 @@ func TestOracle_RenewUser(t *testing.T) {
 		t.Fatalf("Could not connect with new credentials: %s", err)
 	}
 
-	err = db.RenewUser(statements, username, time.Now().Add(time.Minute))
+	err = db.RenewUser(context.Background(), statements, username, time.Now().Add(time.Minute))
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
@@ -174,8 +181,9 @@ func TestOracle_RevokeUser(t *testing.T) {
 		"connection_url": connURL,
 	}
 
-	db := New()
-	err := db.Initialize(connectionDetails, true)
+	db := new()
+
+	err := db.Initialize(context.Background(), connectionDetails, true)
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
@@ -189,7 +197,7 @@ func TestOracle_RevokeUser(t *testing.T) {
 		CreationStatements: testRole,
 	}
 
-	username, password, err := db.CreateUser(statements, usernameConfig, time.Now().Add(2*time.Second))
+	username, password, err := db.CreateUser(context.Background(), statements, usernameConfig, time.Now().Add(2*time.Second))
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
@@ -198,7 +206,7 @@ func TestOracle_RevokeUser(t *testing.T) {
 		t.Fatalf("Could not connect with new credentials: %s", err)
 	}
 
-	err = db.RevokeUser(statements, username)
+	err = db.RevokeUser(context.Background(), statements, username)
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
@@ -216,8 +224,9 @@ func TestOracle_RevokeUserWithCustomStatements(t *testing.T) {
 		"connection_url": connURL,
 	}
 
-	db := New()
-	err := db.Initialize(connectionDetails, true)
+	db := new()
+
+	err := db.Initialize(context.Background(), connectionDetails, true)
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
@@ -231,7 +240,7 @@ func TestOracle_RevokeUserWithCustomStatements(t *testing.T) {
 		CreationStatements: testRole,
 	}
 
-	username, password, err := db.CreateUser(statements, usernameConfig, time.Now().Add(2*time.Second))
+	username, password, err := db.CreateUser(context.Background(), statements, usernameConfig, time.Now().Add(2*time.Second))
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
@@ -241,13 +250,63 @@ func TestOracle_RevokeUserWithCustomStatements(t *testing.T) {
 	}
 
 	statements.RevocationStatements = defaultOracleRevocationSQL
-	err = db.RevokeUser(statements, username)
+	err = db.RevokeUser(context.Background(), statements, username)
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
 
 	if err := testCredentialsExist(connURL, username, password); err == nil {
 		t.Fatal("Credentials were not revoked")
+	}
+}
+
+func TestOracle_RotateRootCredentials(t *testing.T) {
+	testRotateRootCredentialsCore(t, false)
+	testRotateRootCredentialsCore(t, true)
+}
+
+func testRotateRootCredentialsCore(t *testing.T, custom bool) {
+	cleanup, connURL := prepareOracleTestContainer(t)
+	defer cleanup()
+
+	connectionDetails := map[string]interface{}{
+		"connection_url": connURL,
+		"username":       defaultUser,
+		"password":       defaultPassword,
+	}
+
+	db := new()
+
+	err := db.Initialize(context.Background(), connectionDetails, true)
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	err = testCredentialsExist(connURL, defaultUser, defaultPassword)
+	if err != nil {
+		t.Fatalf("unable to connect with original credentials: %v", err)
+	}
+
+	var rotateStatement []string
+	if custom {
+		rotateStatement = []string{`alter user {{username}} identified by {{password}}`}
+	}
+	newConf, err := db.RotateRootCredentials(context.Background(), rotateStatement)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if newConf["password"].(string) == defaultPassword {
+		t.Fatal("password was not updated")
+	}
+
+	err = testCredentialsExist(connURL, defaultUser, newConf["password"].(string))
+	if err != nil {
+		t.Fatalf("unable to connect with new credentials: %v", err)
+	}
+
+	err = db.Close()
+	if err != nil {
+		t.Fatalf("err: %s", err)
 	}
 }
 
@@ -265,7 +324,6 @@ func testCredentialsExist(connString, username, password string) error {
 }
 
 const testRole = `
-alter session set "_ORACLE_SCRIPT"=true;  
 CREATE USER {{name}} IDENTIFIED BY {{password}};
 GRANT CONNECT TO {{name}};
 GRANT CREATE SESSION TO {{name}};

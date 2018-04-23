@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cenk/backoff"
-	dc "github.com/fsouza/go-dockerclient"
+	"github.com/cenkalti/backoff"
+	dc "github.com/ory/dockertest/docker"
 	"github.com/pkg/errors"
 )
 
@@ -83,17 +83,17 @@ func NewTLSPool(endpoint, certpath string) (*Pool, error) {
 // TLS pools are automatically configured if the DOCKER_CERT_PATH environment variable exists.
 func NewPool(endpoint string) (*Pool, error) {
 	if endpoint == "" {
-		if os.Getenv("DOCKER_HOST") != "" {
-			endpoint = os.Getenv("DOCKER_HOST")
-		} else if os.Getenv("DOCKER_URL") != "" {
-			endpoint = os.Getenv("DOCKER_URL")
-		} else if os.Getenv("DOCKER_MACHINE_NAME") != "" {
+		if os.Getenv("DOCKER_MACHINE_NAME") != "" {
 			client, err := dc.NewClientFromEnv()
 			if err != nil {
-				return nil, errors.Wrap(err, "")
+				return nil, errors.Wrap(err, "failed to create client from environment")
 			}
 
 			return &Pool{Client: client}, nil
+		} else if os.Getenv("DOCKER_HOST") != "" {
+			endpoint = os.Getenv("DOCKER_HOST")
+		} else if os.Getenv("DOCKER_URL") != "" {
+			endpoint = os.Getenv("DOCKER_URL")
 		} else if runtime.GOOS == "windows" {
 			endpoint = "http://localhost:2375"
 		} else {
@@ -101,7 +101,7 @@ func NewPool(endpoint string) (*Pool, error) {
 		}
 	}
 
-	if os.Getenv("DOCKER_CERT_PATH") == "" && shouldPreferTls(endpoint) {
+	if os.Getenv("DOCKER_CERT_PATH") != "" && shouldPreferTls(endpoint) {
 		return NewTLSPool(endpoint, os.Getenv("DOCKER_CERT_PATH"))
 	}
 
@@ -131,6 +131,8 @@ type RunOptions struct {
 	Mounts       []string
 	Links        []string
 	ExposedPorts []string
+	ExtraHosts   []string
+	WorkingDir   string
 	Auth         dc.AuthConfiguration
 	PortBindings map[dc.Port][]dc.PortBinding
 }
@@ -170,6 +172,7 @@ func (d *Pool) RunWithOptions(opts *RunOptions) (*Resource, error) {
 	env := opts.Env
 	cmd := opts.Cmd
 	ep := opts.Entrypoint
+	wd := opts.WorkingDir
 	var exp map[dc.Port]struct{}
 
 	if len(opts.ExposedPorts) > 0 {
@@ -218,12 +221,14 @@ func (d *Pool) RunWithOptions(opts *RunOptions) (*Resource, error) {
 			Cmd:          cmd,
 			Mounts:       mounts,
 			ExposedPorts: exp,
+			WorkingDir: wd,
 		},
 		HostConfig: &dc.HostConfig{
 			PublishAllPorts: true,
 			Binds:           opts.Mounts,
 			Links:           opts.Links,
 			PortBindings:    opts.PortBindings,
+			ExtraHosts:      opts.ExtraHosts,
 		},
 	})
 	if err != nil {
@@ -253,10 +258,6 @@ func (d *Pool) Run(repository, tag string, env []string) (*Resource, error) {
 
 // Purge removes a container and linked volumes from docker.
 func (d *Pool) Purge(r *Resource) error {
-	if err := d.Client.KillContainer(dc.KillContainerOptions{ID: r.Container.ID}); err != nil {
-		return errors.Wrap(err, "")
-	}
-
 	if err := d.Client.RemoveContainer(dc.RemoveContainerOptions{ID: r.Container.ID, Force: true, RemoveVolumes: true}); err != nil {
 		return errors.Wrap(err, "")
 	}
