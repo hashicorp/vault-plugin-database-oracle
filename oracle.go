@@ -26,11 +26,17 @@ const oracleUsernameLength = 30
 const oracleDisplayNameMaxLength = 8
 const oraclePasswordLength = 30
 
-const revocationSQL = `
+const (
+	revocationSQL = `
 REVOKE CONNECT FROM {{name}};
 REVOKE CREATE SESSION FROM {{name}};
 DROP USER {{name}};
 `
+
+	defaultRotateRootCredentialsSql = `
+ALTER USER {{username}} IDENTIFIED BY {{password}};
+`
+)
 
 const sessionQuerySQL = `SELECT sid, serial#, username FROM v$session WHERE username = UPPER('{{name}}')`
 
@@ -222,8 +228,9 @@ func (o *Oracle) RotateRootCredentials(ctx context.Context, statements []string)
 		return nil, errors.New("username and password are required to rotate")
 	}
 
-	if len(statements) == 0 {
-		return nil, errors.New("rotation statements must be provided")
+	rotateStatements := statements
+	if len(rotateStatements) == 0 {
+		rotateStatements = []string{defaultRotateRootCredentialsSql}
 	}
 
 	db, err := o.getConnection(ctx)
@@ -244,7 +251,7 @@ func (o *Oracle) RotateRootCredentials(ctx context.Context, statements []string)
 		return nil, err
 	}
 
-	for _, stmt := range statements {
+	for _, stmt := range rotateStatements {
 		for _, query := range strutil.ParseArbitraryStringSlice(stmt, ";") {
 			query = strings.TrimSpace(query)
 			if len(query) == 0 {
