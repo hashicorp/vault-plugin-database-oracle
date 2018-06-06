@@ -127,7 +127,7 @@
   branch = "master"
   name = "github.com/hashicorp/go-retryablehttp"
   packages = ["."]
-  revision = "763e4b5d05f5534071213c67c335aad6b0d318a7"
+  revision = "3b087ef2d313afe6c55b2f511d20db04ca767075"
 
 [[projects]]
   branch = "master"
@@ -209,13 +209,13 @@
     "plugins/helper/database/dbutil",
     "version"
   ]
-  revision = "da2bb1c8a7b2ac56a3448eb460fe4b558f1da116"
+  revision = "74e1134a91bc9c801dab2c846f49551a99ce1fb6"
 
 [[projects]]
   branch = "master"
   name = "github.com/hashicorp/yamux"
   packages = ["."]
-  revision = "2658be15c5f05e76244154714161f17e3e77de2e"
+  revision = "3520598351bb3500a49ae9563f5539666ae0a27c"
 
 [[projects]]
   branch = "master"
@@ -227,7 +227,7 @@
   branch = "master"
   name = "github.com/mattn/go-oci8"
   packages = ["."]
-  revision = "a2928e4a4ebc87c6fd85734514396182b94537c2"
+  revision = "b0e38e039e839a22d147a8415fad2f4592fdd1d7"
 
 [[projects]]
   branch = "master"
@@ -327,13 +327,13 @@
   version = "v1.0.5"
 
 [[projects]]
-  branch = "master"
   name = "github.com/tgulacsi/go"
   packages = [
     "dber",
     "orahlp"
   ]
-  revision = "c21a14ecab20ec26a11321c910d3f322611664f5"
+  revision = "f64cf7babacf89e9457ff7aab4780c6ef6d9742b"
+  version = "v0.2.2"
 
 [[projects]]
   branch = "master"
@@ -347,7 +347,7 @@
     "poly1305",
     "ssh/terminal"
   ]
-  revision = "ab813273cd59e1333f7ae7bff5d027d4aadf528c"
+  revision = "b47b1587369238182299fe4dad77d05b8b461e06"
 
 [[projects]]
   branch = "master"
@@ -361,7 +361,7 @@
     "internal/timeseries",
     "trace"
   ]
-  revision = "dfa909b99c79129e1100513e5cd36307665e5723"
+  revision = "1e491301e022f8f977054da4c2d852decd59571f"
 
 [[projects]]
   branch = "master"
@@ -404,7 +404,7 @@
   branch = "master"
   name = "google.golang.org/genproto"
   packages = ["googleapis/rpc/status"]
-  revision = "694d95ba50e67b2e363f3483057db5d4910c18f9"
+  revision = "81158efcc9f219c511e4d3c0d61a0e6e49c01a24"
 
 [[projects]]
   name = "google.golang.org/grpc"
@@ -448,6 +448,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f33fa75c6dc858a9014d901da5afdc3b5d3a4fec5ed086ae7164ac3bb0158c64"
+  inputs-digest = "598ddec990d959bde75da1ac7167b8035b3128610b44c61580588d3fd163835e"
   solver-name = "gps-cdcl"
   solver-version = 1
