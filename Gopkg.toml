@@ -35,7 +35,7 @@
 
 [[constraint]]
   name = "github.com/tgulacsi/go"
-  version = "0.2.2"
+  version = "0.2.3"
 
 [[constraint]]
   name = "gopkg.in/ory-am/dockertest.v3"
