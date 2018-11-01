@@ -27,7 +27,7 @@
 
 [[constraint]]
   name = "github.com/hashicorp/vault"
-  branch = "master"
+  version = "0.11.4"
 
 [[constraint]]
   branch = "master"
@@ -35,7 +35,7 @@
 
 [[constraint]]
   name = "github.com/tgulacsi/go"
-  version = "0.2.2"
+  version = "0.2.8"
 
 [[constraint]]
   name = "gopkg.in/ory-am/dockertest.v3"
