@@ -29,19 +29,6 @@
   revision = "cd527374f1e5bff4938207604a14f2e38a9cf512"
 
 [[projects]]
-  digest = "1:a69ab3f1445ffd4815add4bd31ba05b65b3b9fec1ade5057d5d717f30e6efd6d"
-  name = "github.com/SermoDigital/jose"
-  packages = [
-    ".",
-    "crypto",
-    "jws",
-    "jwt",
-  ]
-  pruneopts = "UT"
-  revision = "f6df55f235c24f236d11dbcf665249a59ac2021f"
-  version = "1.1"
-
-[[projects]]
   branch = "master"
   digest = "1:ef5b0622d834c139454148b8fd0c92bb314828900532b267ae62da9fec109866"
   name = "github.com/armon/go-metrics"
@@ -218,7 +205,8 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:2d3fd1157867cfa56785a2caa4280dd8510662e62bac6111759398021f01a624"
+  branch = "master"
+  digest = "1:402b3b0ee66cfecfc49a370ff310d78721d92a5194b8e5c10a8c6252bc2183af"
   name = "github.com/hashicorp/vault"
   packages = [
     "api",
@@ -243,8 +231,7 @@
     "version",
   ]
   pruneopts = "UT"
-  revision = "612120e76de651ef669c9af5e77b27a749b0dba3"
-  version = "v0.11.4"
+  revision = "208c76d345731837087b6a96493b5c1652eaf39b"
 
 [[projects]]
   branch = "master"
@@ -418,9 +405,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:3f3a05ae0b95893d90b9b3b5afdb79a9b3d96e4e36e099d841ae602e4aca0da8"
+  digest = "1:8e241498e35f550e5192ee6b1f6ff2c0a7ffe81feff9541d297facffe1383979"
   name = "golang.org/x/crypto"
-  packages = ["ssh/terminal"]
+  packages = [
+    "ed25519",
+    "ed25519/internal/edwards25519",
+    "pbkdf2",
+    "ssh/terminal",
+  ]
   pruneopts = "UT"
   revision = "4d3f4d9ffa16a13f451c3b2999e9c49e9750bf06"
 
@@ -534,6 +526,19 @@
   pruneopts = "UT"
   revision = "9f1141b78507d23603f6be530587664ebb63a8d2"
   version = "v3.3.2"
+
+[[projects]]
+  digest = "1:005cbf8b937fcb1694b9dbb845b0aef618627be7faf7bb330eb2490e3f506ef8"
+  name = "gopkg.in/square/go-jose.v2"
+  packages = [
+    ".",
+    "cipher",
+    "json",
+    "jwt",
+  ]
+  pruneopts = "UT"
+  revision = "628223f44a71f715d2881ea69afc795a1e9c01be"
+  version = "v2.3.0"
 
 [solve-meta]
   analyzer-name = "dep"
