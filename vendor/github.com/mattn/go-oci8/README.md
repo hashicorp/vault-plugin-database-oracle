@@ -1,30 +1,46 @@
-go-oci8
-=======
+# go-oci8
 
 [![GoDoc Reference](https://godoc.org/github.com/mattn/go-oci8?status.svg)](http://godoc.org/github.com/mattn/go-oci8)
-[![Build Status](https://travis-ci.org/mattn/go-oci8.svg)](https://travis-ci.org/mattn/go-oci8)
+[![Build Status](https://travis-ci.org/mattn/go-oci8.svg?branch=master)](https://travis-ci.org/mattn/go-oci8)
 
-Description
------------
 
-Oracle driver conforming to the built-in database/sql interface
+## Description
 
-Installation
-------------
+Golang Oracle database driver conforming to the Go database/sql interface
 
-This package can be installed with the go get command:
+## Installation
 
-    go get github.com/mattn/go-oci8
+Install Oracle full client or Instant Client:
 
-You need to put `oci8.pc` like into your `$PKG_CONFIG_PATH`. `oci8.pc` should be like below.
+https://www.oracle.com/technetwork/database/database-technologies/instant-client/downloads/index.html
 
-### Example for Windows
+Install a C/C++ compiler
+
+Install pkg-config, edit your package config file oci8.pc (examples below), then set environment variable PKG_CONFIG_PATH to oci8.pc file location
+(Or can use Go tag noPkgConfig then setup environment variables CGO_CFLAGS and CGO_LDFLAGS)
+
+Go get with Go version 1.9 or higher
+
+```
+go get github.com/mattn/go-oci8
+```
+
+Try the simple select example:
+
+https://godoc.org/github.com/mattn/go-oci8#example-package--SqlSelect
+
+If you have a build error it is normaly because of a misconfiguration, make sure to search close issues for help
+
+
+## oci8.pc Examples
+
+### Windows
 
 ```
 prefix=/devel/target/XXXXXXXXXXXXXXXXXXXXXXXXXX
 exec_prefix=${prefix}
-libdir=c:/oraclexe/app/oracle/product/11.2.0/server/oci/lib/msvc
-includedir=c:/oraclexe/app/oracle/product/11.2.0/server/oci/include/include
+libdir=C:/app/instantclient_12_2/sdk/oci/lib/msvc
+includedir=C:/app/instantclient_12_2/sdk/include
 
 glib_genmarshal=glib-genmarshal
 gobject_query=gobject-query
@@ -34,16 +50,16 @@ Name: oci8
 Description: oci8 library
 Libs: -L${libdir} -loci
 Cflags: -I${includedir}
-Version: 11.2
+Version: 12.2
 ```
 
-### Example for Linux
+### Linux
 
 ```
 prefix=/devel/target/XXXXXXXXXXXXXXXXXXXXXXXXXX
 exec_prefix=${prefix}
-libdir=/usr/lib/oracle/11.2/client64/lib
-includedir=/usr/include/oracle/11.2/client64
+libdir=/usr/lib/oracle/12.2/client64/lib
+includedir=/usr/include/oracle/12.2/client64
 
 glib_genmarshal=glib-genmarshal
 gobject_query=gobject-query
@@ -53,10 +69,10 @@ Name: oci8
 Description: oci8 library
 Libs: -L${libdir} -lclntsh
 Cflags: -I${includedir}
-Version: 11.2
+Version: 12.2
 ```
 
-### Example for MacOs
+### MacOs
 
 Please install `pkg-config` with [`brew`](https://brew.sh/) if not already present.
 Download the instant client and the sdk and unpack it e.g. in your
@@ -83,23 +99,20 @@ export LD_LIBRARY_PATH=/Users/<username>/Downloads/instantclient_12_2
 export PKG_CONFIG_PATH=/Users/<username>/Downloads/instantclient_12_2
 ```
 
-Examples
--------------
+## SQL Examples
 
-Examples can be found under the `./_example` directory
+SQL examples can be found in the GoDoc reference:
 
-ToDo
-----
+https://godoc.org/github.com/mattn/go-oci8
 
-* LastInserted is not int64
-* Fetch number is more improvable
+And in _example:
 
-Author
-------
+https://github.com/mattn/go-oci8/tree/master/_example
+
+## Author
 
 Yasuhiro Matsumoto (a.k.a mattn)
 
-Special Thanks
---------------
+## Special Thanks
 
 Jamil Djadala
