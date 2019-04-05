@@ -1,8 +1,8 @@
 package oci8
 
 /*
-#include "oci8.go.h"
 #cgo !noPkgConfig pkg-config: oci8
+#include "oci8.go.h"
 */
 import "C"
 
@@ -11,6 +11,7 @@ import "C"
 import (
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"io/ioutil"
 	"log"
 	"regexp"
@@ -19,7 +20,7 @@ import (
 )
 
 const (
-	blobBufSize        = 4000
+	lobBufferSize      = 4000
 	useOCISessionBegin = true
 	sizeOfNilPointer   = unsafe.Sizeof(unsafe.Pointer(nil))
 )
@@ -30,8 +31,8 @@ type (
 		Connect                string
 		Username               string
 		Password               string
-		prefetchRows           uint32
-		prefetchMemory         uint32
+		prefetchRows           C.ub4
+		prefetchMemory         C.ub4
 		Location               *time.Location
 		transactionMode        C.ub4
 		enableQMPlaceholders   bool
@@ -57,10 +58,10 @@ type (
 		svc                  *C.OCISvcCtx
 		srv                  *C.OCIServer
 		env                  *C.OCIEnv
-		err                  *C.OCIError
+		errHandle            *C.OCIError
 		usrSession           *C.OCISession
-		prefetchRows         uint32
-		prefetchMemory       uint32
+		prefetchRows         C.ub4
+		prefetchMemory       C.ub4
 		location             *time.Location
 		transactionMode      C.ub4
 		operationMode        C.ub4
@@ -91,50 +92,57 @@ type (
 		conn   *OCI8Conn
 		stmt   *C.OCIStmt
 		closed bool
-		bp     **C.OCIBind
-		defp   **C.OCIDefine
-		pbind  []oci8bind //bind params
+		pbind  []oci8Bind // bind params
 	}
 
 	// OCI8Result is Oracle result
 	OCI8Result struct {
-		n     int64
-		errn  error
-		id    int64
-		errid error
-		stmt  *OCI8Stmt
+		rowsAffected    int64
+		rowsAffectedErr error
+		rowid           string
+		rowidErr        error
+		stmt            *OCI8Stmt
 	}
 
-	oci8col struct {
-		name string
-		kind C.ub2
-		size int
-		ind  *C.sb2
-		rlen *C.ub2
-		pbuf unsafe.Pointer
+	oci8Define struct {
+		name         string
+		dataType     C.ub2
+		pbuf         unsafe.Pointer
+		maxSize      C.sb4
+		length       *C.ub2
+		indicator    *C.sb2
+		defineHandle *C.OCIDefine
 	}
 
-	oci8bind struct {
-		kind C.ub2
-		pbuf unsafe.Pointer
-		clen C.sb4
-		out  interface{} // original binded data type
+	oci8Bind struct {
+		dataType   C.ub2
+		pbuf       unsafe.Pointer
+		maxSize    C.sb4
+		length     *C.ub2
+		indicator  *C.sb2
+		bindHandle *C.OCIBind
+		out        sql.Out
 	}
 
 	// OCI8Rows is Oracle rows
 	OCI8Rows struct {
-		stmt       *OCI8Stmt
-		cols       []oci8col
-		e          bool
-		indrlenptr unsafe.Pointer
-		closed     bool
-		done       chan struct{}
-		cls        bool
+		stmt    *OCI8Stmt
+		defines []oci8Define
+		e       bool
+		closed  bool
+		done    chan struct{}
+		cls     bool
 	}
 )
 
 var (
-	phre = regexp.MustCompile(`\?`)
+	// ErrOCISuccessWithInfo is OCI_SUCCESS_WITH_INFO
+	ErrOCISuccessWithInfo = errors.New("OCI_SUCCESS_WITH_INFO")
+	// ErrNoRowid is result has no rowid
+	ErrNoRowid = errors.New("result has no rowid")
+
+	phre           = regexp.MustCompile(`\?`)
+	defaultCharset = C.ub2(0)
 
 	// OCI8Driver is the sql driver
 	OCI8Driver = &OCI8DriverStruct{
@@ -144,4 +152,36 @@ var (
 
 func init() {
 	sql.Register("oci8", OCI8Driver)
+
+	// set defaultCharset to AL32UTF8
+	var envP *C.OCIEnv
+	envPP := &envP
+	var result C.sword
+	result = C.OCIEnvCreate(envPP, C.OCI_DEFAULT, nil, nil, nil, nil, 0, nil)
+	if result != C.OCI_SUCCESS {
+		panic("OCIEnvCreate error")
+	}
+	nlsLang := cString("AL32UTF8")
+	defaultCharset = C.OCINlsCharSetNameToId(unsafe.Pointer(*envPP), (*C.oratext)(nlsLang))
+	C.free(unsafe.Pointer(nlsLang))
+	C.OCIHandleFree(unsafe.Pointer(*envPP), C.OCI_HTYPE_ENV)
 }
+
+/*
+OCI Documentation Notes
+
+Datatypes:
+https://docs.oracle.com/en/database/oracle/oracle-database/12.2/lnoci/data-types.html
+
+Handle and Descriptor Attributes:
+https://docs.oracle.com/en/database/oracle/oracle-database/12.2/lnoci/handle-and-descriptor-attributes.html
+
+OCI Function Server Round Trips:
+https://docs.oracle.com/en/database/oracle/oracle-database/12.2/lnoci/oci-function-server-round-trips.html
+
+OCI examples:
+https://github.com/alexeyvo/oracle_oci_examples
+
+Oracle datatypes:
+https://ss64.com/ora/syntax-datatypes.html
+*/

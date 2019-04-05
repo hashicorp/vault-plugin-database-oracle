@@ -259,11 +259,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:91c3cc45a06e5b20c07d2bcc98dd3822b04af75079a0cffe56d8a15af80e2e86"
+  digest = "1:b64252c97be9852811732211f969458725ef9f8223f95e6d7d6eae98236f0c31"
   name = "github.com/mattn/go-oci8"
   packages = ["."]
   pruneopts = "UT"
-  revision = "048cd9670c0a15373c1b367e77359f2a3b95a468"
+  revision = "14ba190cf52d8233d9326b7885dde9fb7bb8d68e"
 
 [[projects]]
   digest = "1:78bbb1ba5b7c3f2ed0ea1eab57bdd3859aec7e177811563edc41198a760b06af"
