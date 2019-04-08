@@ -12,7 +12,7 @@ RUN yum update -y && yum install -y  \
 		git \
 	&& rm -rf /var/lib/apt/lists/*
 
-ENV GOLANG_VERSION 1.11.1
+ENV GOLANG_VERSION 1.11.6
 
 RUN set -eux; \
 	\
