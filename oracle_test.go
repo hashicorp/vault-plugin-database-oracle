@@ -10,7 +10,7 @@ import (
 
 	"github.com/tgulacsi/go/orahlp"
 
-	"github.com/hashicorp/vault/builtin/logical/database/dbplugin"
+	"github.com/hashicorp/vault/sdk/database/dbplugin"
 	dockertest "gopkg.in/ory-am/dockertest.v3"
 )
 

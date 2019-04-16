@@ -5,11 +5,11 @@ import (
 	"os"
 
 	plugin "github.com/hashicorp/vault-plugin-database-oracle"
-	"github.com/hashicorp/vault/helper/pluginutil"
+	"github.com/hashicorp/vault/api"
 )
 
 func main() {
-	apiClientMeta := &pluginutil.APIClientMeta{}
+	apiClientMeta := &api.PluginAPIClientMeta{}
 	flags := apiClientMeta.FlagSet()
 	flags.Parse(os.Args[1:])
 

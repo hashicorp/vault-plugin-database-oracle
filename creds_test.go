@@ -8,8 +8,8 @@ import (
 	"testing"
 	"testing/quick"
 
-	"github.com/hashicorp/vault/builtin/logical/database/dbplugin"
-	"github.com/hashicorp/vault/plugins/helper/database/credsutil"
+	"github.com/hashicorp/vault/sdk/database/dbplugin"
+	"github.com/hashicorp/vault/sdk/database/helper/credsutil"
 )
 
 type testUsername string
