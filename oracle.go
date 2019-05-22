@@ -10,6 +10,7 @@ import (
 
 	_ "github.com/mattn/go-oci8"
 
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/sdk/database/dbplugin"
 	"github.com/hashicorp/vault/sdk/database/helper/connutil"
@@ -280,14 +281,14 @@ func (o *Oracle) RotateRootCredentials(ctx context.Context, statements []string)
 	return o.RawConfig, nil
 }
 
-func (o *Oracle) disconnectSession(db *sql.DB, username string) error {
+func (o *Oracle) disconnectSession(db *sql.DB, username string) (rerr error) {
 	disconnectStmt, err := db.Prepare(strings.Replace(sessionQuerySQL, "{{name}}", username, -1))
 	if err != nil {
-		return err
+		return multierror.Append(rerr, err)
 	}
 	defer disconnectStmt.Close()
 	if rows, err := disconnectStmt.Query(); err != nil {
-		return err
+		return multierror.Append(rerr, err)
 	} else {
 		defer rows.Close()
 		for rows.Next() {
@@ -295,17 +296,17 @@ func (o *Oracle) disconnectSession(db *sql.DB, username string) error {
 			var username sql.NullString
 			err = rows.Scan(&sessionID, &serialNumber, &username)
 			if err != nil {
-				return err
+				return multierror.Append(rerr, err)
 			}
 			killStatement := fmt.Sprintf(sessionKillSQL, sessionID, serialNumber)
 			_, err = db.Exec(killStatement)
 			if err != nil {
-				return err
+				return multierror.Append(rerr, err)
 			}
 		}
 		err = rows.Err()
 		if err != nil {
-			return err
+			return multierror.Append(rerr, err)
 		}
 	}
 	return nil
