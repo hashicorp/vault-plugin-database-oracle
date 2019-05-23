@@ -290,20 +290,24 @@ func (o *Oracle) disconnectSession(db *sql.DB, username string) (rerr error) {
 	if rows, err := disconnectStmt.Query(); err != nil {
 		return multierror.Append(rerr, err)
 	} else {
-		defer rows.Close()
 		for rows.Next() {
 			var sessionID, serialNumber int
 			var username sql.NullString
 			err = rows.Scan(&sessionID, &serialNumber, &username)
 			if err != nil {
+				rows.Close()
 				return multierror.Append(rerr, err)
 			}
-			killStatement := fmt.Sprintf(sessionKillSQL, sessionID, serialNumber)
-			_, err = db.Exec(killStatement)
-			if err != nil {
-				return multierror.Append(rerr, err)
-			}
+			// Issuing the KILL SESSION must happen *after* the rows cursor is closed.
+			defer func() {
+				killStatement := fmt.Sprintf(sessionKillSQL, sessionID, serialNumber)
+				_, err = db.Exec(killStatement)
+				if err != nil {
+					rerr = multierror.Append(rerr, err)
+				}
+			}()
 		}
+		defer rows.Close()
 		err = rows.Err()
 		if err != nil {
 			return multierror.Append(rerr, err)
