@@ -284,11 +284,11 @@ func (o *Oracle) RotateRootCredentials(ctx context.Context, statements []string)
 func (o *Oracle) disconnectSession(db *sql.DB, username string) (rerr error) {
 	disconnectStmt, err := db.Prepare(strings.Replace(sessionQuerySQL, "{{name}}", username, -1))
 	if err != nil {
-		return multierror.Append(rerr, err)
+		return err
 	}
 	defer disconnectStmt.Close()
 	if rows, err := disconnectStmt.Query(); err != nil {
-		return multierror.Append(rerr, err)
+		return err
 	} else {
 		for rows.Next() {
 			var sessionID, serialNumber int
@@ -296,7 +296,7 @@ func (o *Oracle) disconnectSession(db *sql.DB, username string) (rerr error) {
 			err = rows.Scan(&sessionID, &serialNumber, &username)
 			if err != nil {
 				rows.Close()
-				return multierror.Append(rerr, err)
+				return err
 			}
 			// Issuing the KILL SESSION must happen *after* the rows cursor is closed.
 			defer func() {
@@ -310,7 +310,7 @@ func (o *Oracle) disconnectSession(db *sql.DB, username string) (rerr error) {
 		defer rows.Close()
 		err = rows.Err()
 		if err != nil {
-			return multierror.Append(rerr, err)
+			return err
 		}
 	}
 	return nil
