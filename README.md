@@ -46,7 +46,7 @@ You will need to define a plugin directory using the `plugin_directory` configur
 Register the plugin using
 
 ```
-vault write sys/plugins/catalog/vault-plugin-database-oracle \
+vault write sys/plugins/catalog/database/vault-plugin-database-oracle \
     sha_256=<expected SHA256 Hex value of the plugin binary> \
     command="vault-plugin-database-oracle"
 ```
