@@ -11,8 +11,9 @@ require (
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.3.3 // indirect
 	github.com/gotestyourself/gotestyourself v2.2.0+incompatible // indirect
-	github.com/hashicorp/vault/api v1.0.3-0.20190621032152-5e69e31ff9d3
-	github.com/hashicorp/vault/sdk v0.1.12-0.20190621032152-5e69e31ff9d3
+	github.com/hashicorp/vault/api v1.0.3-0.20190708230616-f76f82814e42
+	github.com/hashicorp/vault/sdk v0.1.12-0.20190708230402-d89b4f2aacc4
+	github.com/kisielk/gotool v1.0.0 // indirect
 	github.com/mattn/go-oci8 v0.0.0-20190410054007-e00f23025626
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
