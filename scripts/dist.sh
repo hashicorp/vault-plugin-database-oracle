@@ -35,7 +35,7 @@ fi
 # Build the packages
 if [ -z $NOBUILD ]; then
   # This should be a local build of the Dockerfile in the cross dir
-  docker run --rm -v "$(pwd)":/vault-plugin-database-oracle -w /vault-plugin-database-oracle -e  PKG_CONFIG_PATH=/go/src/github.com/hashicorp/vault-plugin-database-oracle/scripts/linux_amd64 ${DOCKER_CROSS_IMAGE}
+  docker run --rm -v "$(pwd)":/go/src/github.com/hashicorp/vault-plugin-database-oracle -w /go/src/github.com/hashicorp/vault-plugin-database-oracle -e  PKG_CONFIG_PATH=/go/src/github.com/hashicorp/vault-plugin-database-oracle/scripts/linux_amd64 ${DOCKER_CROSS_IMAGE}
 fi
 
 # Zip all the files

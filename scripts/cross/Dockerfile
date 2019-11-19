@@ -33,8 +33,7 @@ RUN yum install -y \
 		oracle-instantclient19.3-basic \
 		oracle-instantclient19.3-devel
 
-#RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" "/vault-plugin-database-oracle" && chmod -R 777 "$GOPATH"
-RUN mkdir -p /vault-plugin-database-oracle && chmod 777 /vault-plugin-database-oracle
-WORKDIR /vault-plugin-database-oracle
+RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" "$GOPATH/src/github.com/hashicorp/vault-plugin-database-oracle" && chmod -R 777 "$GOPATH"
+WORKDIR $GOPATH/src/github.com/hashicorp/vault-plugin-database-oracle
 
 CMD make bootstrap bin
