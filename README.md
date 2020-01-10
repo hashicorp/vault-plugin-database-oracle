@@ -10,9 +10,19 @@ For linux/amd64, pre-built binaries can be found at [the releases page](https://
 
 For other platforms, there are not currently pre-built binaries available.
 
-Before building, you will need to download the Oracle Instant Client library, which is available from [Oracle](http://www.oracle.com/technetwork/database/features/instant-client/index-097480.html). Download the SDK package to get the headers and download the Basic package to get the libraries for your platform. The libraries and headers should be installed at one of the standard locations for your platform (e.g. on macOS, `/usr/local/include`&`/usr/local/lib` or `~/include`&`~/lib`).
+Before building, you will need to download the Oracle Instant Client library, which is available from
+[Oracle](http://www.oracle.com/technetwork/database/features/instant-client/index-097480.html). Download the SDK package to get the headers and
+download the Basic package to get the libraries for your platform. Inside the SDK package's subfolder: `instantclient_<version>/sdk/include/` are a
+number of header files. Similarly, inside the Basic package's subfolder: `instantclient_<version>/` are a number of library files. These will need to
+be placed into the standard locations for your platform.
 
-Next, create a [`pkg-config`](https://www.freedesktop.org/wiki/Software/pkg-config/) file to point to the library. Create the file `oci8.pc` on your `PKG_CONFIG_PATH`.
+For instance, if you are using MacOS, place the header files from the SDK package into either `/usr/local/include/` or `~/include/`.
+Similarly, place the library files from the Basic package into either `/usr/local/lib/` or `~/lib/`
+
+Next, ensure that you have [`pkg-config`](https://www.freedesktop.org/wiki/Software/pkg-config/) installed on your system. For MacOS, you can install
+it using `brew install pkg-config`.
+
+Create a `pkg-config` file to point to the library. Create the file `oci8.pc` on your `PKG_CONFIG_PATH`.
 
 An example `oci8.pc` for macOS is:
 
