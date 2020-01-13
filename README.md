@@ -4,9 +4,11 @@ A [Vault](https://www.vaultproject.io) plugin for Oracle
 
 This project uses the database plugin interface introduced in Vault version 0.7.1.
 
+This plugin is not compatible with Alpine Linux out of the box. Oracle's libraries are glibc dependant, and Alpine has musl as its default C library.
+
 ## Build
 
-For linux/amd64, pre-built binaries can be found at [the releases page](https://releases.hashicorp.com/vault-plugin-database-oracle/)
+For linux/amd64, pre-built binaries can be found at [the releases page](https://releases.hashicorp.com/vault-plugin-database-oracle/) (built with Oracle Instant Client SDK 19.3)
 
 For other platforms, there are not currently pre-built binaries available.
 
