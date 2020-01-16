@@ -115,7 +115,7 @@ func TestOracle_CreateUser(t *testing.T) {
 	}
 
 	statements := dbplugin.Statements{
-		CreationStatements: testRole,
+		CreationStatements: creationStatements,
 	}
 
 	username, password, err := db.CreateUser(context.Background(), statements, usernameConfig, time.Now().Add(time.Minute))
@@ -149,7 +149,7 @@ func TestOracle_RenewUser(t *testing.T) {
 	}
 
 	statements := dbplugin.Statements{
-		CreationStatements: testRole,
+		CreationStatements: creationStatements,
 	}
 
 	username, password, err := db.CreateUser(context.Background(), statements, usernameConfig, time.Now().Add(2*time.Second))
@@ -195,7 +195,7 @@ func TestOracle_RevokeUser(t *testing.T) {
 	}
 
 	statements := dbplugin.Statements{
-		CreationStatements: testRole,
+		CreationStatements: creationStatements,
 	}
 
 	username, password, err := db.CreateUser(context.Background(), statements, usernameConfig, time.Now().Add(2*time.Second))
@@ -238,7 +238,7 @@ func TestOracle_RevokeUserWithCustomStatements(t *testing.T) {
 	}
 
 	statements := dbplugin.Statements{
-		CreationStatements: testRole,
+		CreationStatements: creationStatements,
 	}
 
 	username, password, err := db.CreateUser(context.Background(), statements, usernameConfig, time.Now().Add(2*time.Second))
@@ -250,7 +250,11 @@ func TestOracle_RevokeUserWithCustomStatements(t *testing.T) {
 		t.Fatalf("Could not connect with new credentials: %s", err)
 	}
 
-	statements.RevocationStatements = defaultOracleRevocationSQL
+	statements.RevocationStatements = `
+REVOKE CONNECT FROM {{name}};
+REVOKE CREATE SESSION FROM {{name}};
+DROP USER {{name}};
+`
 	err = db.RevokeUser(context.Background(), statements, username)
 	if err != nil {
 		t.Fatalf("err: %s", err)
@@ -324,16 +328,10 @@ func testCredentialsExist(connString, username, password string) error {
 	return db.Ping()
 }
 
-const testRole = `
+const creationStatements = `
 CREATE USER {{name}} IDENTIFIED BY {{password}};
 GRANT CONNECT TO {{name}};
 GRANT CREATE SESSION TO {{name}};
-`
-
-const defaultOracleRevocationSQL = `
-REVOKE CONNECT FROM {{name}};
-REVOKE CREATE SESSION FROM {{name}};
-DROP USER {{name}};
 `
 
 func TestSplitQueries(t *testing.T) {
