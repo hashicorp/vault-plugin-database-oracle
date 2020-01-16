@@ -420,3 +420,139 @@ func TestSplitQueries(t *testing.T) {
 		})
 	}
 }
+
+func TestSetCredentials_missingArguments(t *testing.T) {
+	type testCase struct {
+		userConfig dbplugin.StaticUserConfig
+	}
+
+	tests := map[string]testCase{
+		"missing username": {
+			dbplugin.StaticUserConfig{
+				Username: "",
+				Password: "newpassword",
+			},
+		},
+		"missing password": {
+			dbplugin.StaticUserConfig{
+				Username: "testuser",
+				Password: "",
+			},
+		},
+		"missing username and password": {
+			dbplugin.StaticUserConfig{
+				Username: "",
+				Password: "",
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			connURL, cleanup := prepareOracleTestContainer(t)
+			defer cleanup()
+
+			connectionDetails := map[string]interface{}{
+				"connection_url": connURL,
+			}
+
+			db := new()
+			err := db.Initialize(context.Background(), connectionDetails, true)
+			if err != nil {
+				t.Fatalf("err: %s", err)
+			}
+
+			// Create a context with a timeout so we don't spin forever in a worst case
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			updatedUser, updatedPass, err := db.SetCredentials(ctx, dbplugin.Statements{}, test.userConfig)
+			if err == nil {
+				t.Fatalf("err: %s", err)
+			}
+			if updatedUser != "" {
+				t.Fatalf("username provided when it should have errored: %s", updatedUser)
+			}
+			if updatedPass != "" {
+				t.Fatalf("new password provided when it should have errored: %s", updatedPass)
+			}
+		})
+	}
+}
+
+func TestSetCredentials_rotationStatements(t *testing.T) {
+	type testCase struct {
+		rotationStatements []string
+	}
+
+	tests := map[string]testCase{
+		"no rotation statements": {
+			rotationStatements: []string{},
+		},
+		"explicit default": {
+			rotationStatements: []string{`ALTER USER "{{username}}" IDENTIFIED BY "{{password}}"`},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			connURL, cleanup := prepareOracleTestContainer(t)
+			defer cleanup()
+
+			connectionDetails := map[string]interface{}{
+				"connection_url": connURL,
+			}
+
+			db := new()
+			err := db.Initialize(context.Background(), connectionDetails, true)
+			if err != nil {
+				t.Fatalf("err: %s", err)
+			}
+
+			usernameConfig := dbplugin.UsernameConfig{
+				DisplayName: "testuser",
+				RoleName:    "testrole",
+			}
+
+			statements := dbplugin.Statements{
+				Creation: []string{creationStatements},
+				Rotation: test.rotationStatements,
+			}
+
+			// Create a context with a timeout so we don't spin forever in a worst case
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			createdUser, firstPass, err := db.CreateUser(ctx, statements, usernameConfig, time.Now().Add(time.Minute))
+			if err != nil {
+				t.Fatalf("err: %s", err)
+			}
+
+			updatedUserConfig := dbplugin.StaticUserConfig{
+				Username: createdUser,
+				Password: "newpassword",
+			}
+
+			updatedUser, updatedPass, err := db.SetCredentials(ctx, statements, updatedUserConfig)
+			if err != nil {
+				t.Fatalf("err: %s", err)
+			}
+
+			if updatedUser != createdUser {
+				t.Fatalf("username changed %s => %s", createdUser, updatedUser)
+			}
+
+			if updatedPass == firstPass {
+				t.Fatalf("password did not change")
+			}
+
+			if updatedPass != updatedUserConfig.Password {
+				t.Fatalf("password changed to the wrong password")
+			}
+
+			if err = testCredentialsExist(connURL, updatedUser, updatedPass); err != nil {
+				t.Fatalf("Could not connect with updated credentials: %s", err)
+			}
+		})
+	}
+}

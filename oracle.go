@@ -280,6 +280,58 @@ func (o *Oracle) RotateRootCredentials(ctx context.Context, statements []string)
 	return o.RawConfig, nil
 }
 
+func (o *Oracle) SetCredentials(ctx context.Context, statements dbplugin.Statements, staticUser dbplugin.StaticUserConfig) (username, password string, err error) {
+	rotateStatements := statements.Rotation
+	if len(rotateStatements) == 0 {
+		rotateStatements = []string{`ALTER USER "{{username}}" IDENTIFIED BY "{{password}}"`}
+	}
+
+	username = staticUser.Username
+	password = staticUser.Password
+	if username == "" || password == "" {
+		return "", "", errors.New("must provide both username and password")
+	}
+
+	variables := map[string]string{
+		"username": strings.ToUpper(username),
+		"password": password,
+	}
+
+	queries := splitQueries(rotateStatements)
+	if len(queries) == 0 { // Extra check to protect against future changes
+		return "", "", errors.New("no rotation queries found")
+	}
+
+	// Lock the SQL connection
+	o.Lock()
+	defer o.Unlock()
+
+	db, err := o.getConnection(ctx)
+	if err != nil {
+		return "", "", fmt.Errorf("unable to get database connection: %w", err)
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", "", fmt.Errorf("unable to create database transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	for _, rawQuery := range queries {
+		err := dbtxn.ExecuteTxQuery(ctx, tx, variables, rawQuery)
+		if err != nil {
+			return "", "", fmt.Errorf("unable to execute rotation query: %w", err)
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return "", "", fmt.Errorf("unable to commit rotation queries: %w", err)
+	}
+
+	return username, password, nil
+}
+
 func splitQueries(rawQueries []string) (queries []string) {
 	for _, rawQ := range rawQueries {
 		split := strutil.ParseArbitraryStringSlice(rawQ, ";")
