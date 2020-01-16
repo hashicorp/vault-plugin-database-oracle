@@ -51,13 +51,32 @@ Then, `git clone` this repository into your `$GOPATH` and `go build -o vault-plu
 
 The Vault plugin system is documented on the [Vault documentation site](https://www.vaultproject.io/docs/internals/plugins.html).
 
-You will need to define a plugin directory using the `plugin_directory` configuration directive, then place the `vault-plugin-database-oracle` executable generated above in the directory.
+You will need to define a plugin directory using the `plugin_directory` configuration directive, then place the
+`vault-plugin-database-oracle` executable generated above in the directory.
 
-Register the plugin using
+Sample commands for registering and starting to use the plugin:
 
 ```
-vault write sys/plugins/catalog/database/vault-plugin-database-oracle \
-    sha_256=<expected SHA256 Hex value of the plugin binary> \
+$ shasum -a 256 vault-plugin-database-oracle > /tmp/oracle-plugin.sha256
+
+$ vault write sys/plugins/catalog/database/vault-plugin-database-oracle \
+    sha_256=$(cat /tmp/oracle-plugin.sha256) \
     command="vault-plugin-database-oracle"
+
+$ vault secrets enable database
+
+$ vault write database/config/oracle plugin_name \
+    vault-plugin-database-oracle \
+    allowed_roles="*" \
+    connection_url='{{username}}/{{password}}@//url.to.oracle.db:1521/oracle_service' \
+    username='vaultadmin' \
+    password='reallysecurepassword'
+
+# Rotate the admin password immediately. Note that the new password will never be made available through Vault,
+# so you should create a vault-specific database admin user for this
+$ vault write -force database/rotate-root/oracle
 ```
 
+If running the plugin on MacOS you may run into an issue where the OS prevents the Oracle libraries from being executed.
+See [How to open an app that hasn't been notarized or is from an unidentified developer](https://support.apple.com/en-us/HT202491)
+on Apple's support website to be able to run this.
