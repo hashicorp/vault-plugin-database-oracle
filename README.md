@@ -72,11 +72,15 @@ $ vault write database/config/oracle plugin_name \
     username='vaultadmin' \
     password='reallysecurepassword'
 
-# Rotate the admin password immediately. Note that the new password will never be made available through Vault,
-# so you should create a vault-specific database admin user for this
+# You should consider rotating the admin password. Note that if you do, the new password will never be made available
+# through Vault, so you should create a vault-specific database admin user for this.
 $ vault write -force database/rotate-root/oracle
 ```
 
 If running the plugin on MacOS you may run into an issue where the OS prevents the Oracle libraries from being executed.
 See [How to open an app that hasn't been notarized or is from an unidentified developer](https://support.apple.com/en-us/HT202491)
 on Apple's support website to be able to run this.
+
+## Usage Notes
+The [rotation statements](https://www.vaultproject.io/api/secret/databases/index.html#rotation_statements) are optional
+and will default to `ALTER USER "{{username}}" IDENTIFIED BY "{{password}}"`
