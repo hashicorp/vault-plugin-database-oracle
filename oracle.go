@@ -280,6 +280,20 @@ func (o *Oracle) RotateRootCredentials(ctx context.Context, statements []string)
 	return o.RawConfig, nil
 }
 
+func splitQueries(rawQueries []string) (queries []string) {
+	for _, rawQ := range rawQueries {
+		split := strutil.ParseArbitraryStringSlice(rawQ, ";")
+		for _, newQ := range split {
+			newQ = strings.TrimSpace(newQ)
+			if newQ == "" {
+				continue
+			}
+			queries = append(queries, newQ)
+		}
+	}
+	return queries
+}
+
 func (o *Oracle) disconnectSession(db *sql.DB, username string) error {
 	disconnectStmt, err := db.Prepare(strings.Replace(sessionQuerySQL, "{{name}}", username, -1))
 	if err != nil {

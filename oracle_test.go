@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -334,3 +335,90 @@ REVOKE CONNECT FROM {{name}};
 REVOKE CREATE SESSION FROM {{name}};
 DROP USER {{name}};
 `
+
+func TestSplitQueries(t *testing.T) {
+	type testCase struct {
+		input    []string
+		expected []string
+	}
+
+	tests := map[string]testCase{
+		"nil input": {
+			input:    nil,
+			expected: nil,
+		},
+		"empty input": {
+			input:    []string{},
+			expected: nil,
+		},
+		"empty string": {
+			input:    []string{""},
+			expected: nil,
+		},
+		"string with only semicolon": {
+			input:    []string{";"},
+			expected: nil,
+		},
+		"only semicolons": {
+			input:    []string{";;;;"},
+			expected: nil,
+		},
+		"single input": {
+			input: []string{
+				"alter user {{username}} identified by {{password}}",
+			},
+			expected: []string{
+				"alter user {{username}} identified by {{password}}",
+			},
+		},
+		"single input with trailing semicolon": {
+			input: []string{
+				"alter user {{username}} identified by {{password}};",
+			},
+			expected: []string{
+				"alter user {{username}} identified by {{password}}",
+			},
+		},
+		"single input with leading semicolon": {
+			input: []string{
+				";alter user {{username}} identified by {{password}}",
+			},
+			expected: []string{
+				"alter user {{username}} identified by {{password}}",
+			},
+		},
+		"multiple queries in single line": {
+			input: []string{
+				"alter user {{username}} identified by {{password}};do something with {{username}} {{password}};",
+			},
+			expected: []string{
+				"alter user {{username}} identified by {{password}}",
+				"do something with {{username}} {{password}}",
+			},
+		},
+		"multiple queries in multiple lines": {
+			input: []string{
+				"foo;bar;baz",
+				"qux ; quux ; quuz",
+			},
+			expected: []string{
+				"foo",
+				"bar",
+				"baz",
+				"qux",
+				"quux",
+				"quuz",
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			actual := splitQueries(test.input)
+
+			if !reflect.DeepEqual(actual, test.expected) {
+				t.FailNow()
+			}
+		})
+	}
+}
