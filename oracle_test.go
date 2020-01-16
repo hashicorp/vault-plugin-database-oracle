@@ -20,9 +20,9 @@ const (
 	defaultPassword = "oracle"
 )
 
-func prepareOracleTestContainer(t *testing.T) (cleanup func(), connString string) {
+func prepareOracleTestContainer(t *testing.T) (connString string, cleanup func()) {
 	if os.Getenv("ORACLE_DSN") != "" {
-		return func() {}, os.Getenv("ORACLE_DSN")
+		return os.Getenv("ORACLE_DSN"), func() {}
 	}
 
 	pool, err := dockertest.NewPool("")
@@ -59,11 +59,11 @@ func prepareOracleTestContainer(t *testing.T) (cleanup func(), connString string
 		t.Fatalf("Could not connect to Oracle docker container: %s", err)
 	}
 
-	return
+	return connString, cleanup
 }
 
 func TestOracle_Initialize(t *testing.T) {
-	cleanup, connURL := prepareOracleTestContainer(t)
+	connURL, cleanup := prepareOracleTestContainer(t)
 	defer cleanup()
 
 	connectionDetails := map[string]interface{}{
@@ -89,7 +89,7 @@ func TestOracle_Initialize(t *testing.T) {
 }
 
 func TestOracle_CreateUser(t *testing.T) {
-	cleanup, connURL := prepareOracleTestContainer(t)
+	connURL, cleanup := prepareOracleTestContainer(t)
 	defer cleanup()
 
 	connectionDetails := map[string]interface{}{
@@ -129,7 +129,7 @@ func TestOracle_CreateUser(t *testing.T) {
 }
 
 func TestOracle_RenewUser(t *testing.T) {
-	cleanup, connURL := prepareOracleTestContainer(t)
+	connURL, cleanup := prepareOracleTestContainer(t)
 	defer cleanup()
 
 	connectionDetails := map[string]interface{}{
@@ -175,7 +175,7 @@ func TestOracle_RenewUser(t *testing.T) {
 }
 
 func TestOracle_RevokeUser(t *testing.T) {
-	cleanup, connURL := prepareOracleTestContainer(t)
+	connURL, cleanup := prepareOracleTestContainer(t)
 	defer cleanup()
 
 	connectionDetails := map[string]interface{}{
@@ -218,7 +218,7 @@ func TestOracle_RevokeUser(t *testing.T) {
 }
 
 func TestOracle_RevokeUserWithCustomStatements(t *testing.T) {
-	cleanup, connURL := prepareOracleTestContainer(t)
+	connURL, cleanup := prepareOracleTestContainer(t)
 	defer cleanup()
 
 	connectionDetails := map[string]interface{}{
@@ -267,7 +267,7 @@ func TestOracle_RotateRootCredentials(t *testing.T) {
 }
 
 func testRotateRootCredentialsCore(t *testing.T, custom bool) {
-	cleanup, connURL := prepareOracleTestContainer(t)
+	connURL, cleanup := prepareOracleTestContainer(t)
 	defer cleanup()
 
 	connectionDetails := map[string]interface{}{
