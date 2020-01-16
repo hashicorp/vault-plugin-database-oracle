@@ -30,7 +30,7 @@ func prepareOracleTestContainer(t *testing.T) (cleanup func(), connString string
 		t.Fatalf("Failed to connect to docker: %s", err)
 	}
 
-	resource, err := pool.Run("wnameless/oracle-xe-11g", "latest", []string{})
+	resource, err := pool.Run("wnameless/oracle-xe-11g-r2", "latest", []string{})
 	if err != nil {
 		t.Fatalf("Could not start local Oracle docker container: %s", err)
 	}
