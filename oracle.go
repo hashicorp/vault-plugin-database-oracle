@@ -143,7 +143,9 @@ func (o *Oracle) CreateUser(ctx context.Context, statements dbplugin.Statements,
 			}
 
 			m := map[string]string{
-				"name":       username,
+				// Uppercase the username because Oracle does this already for us. This way our code is consistently
+				// uppercased in case this behavior changes or is different between Oracle versions.
+				"name":       strings.ToUpper(username),
 				"password":   password,
 				"expiration": expirationStr,
 			}
@@ -207,7 +209,8 @@ func (o *Oracle) RevokeUser(ctx context.Context, statements dbplugin.Statements,
 			}
 
 			m := map[string]string{
-				"name": username,
+				// Uppercased for consistency with Oracle and other CRUD functions
+				"name": strings.ToUpper(username),
 			}
 
 			if err := dbtxn.ExecuteTxQuery(ctx, tx, m, query); err != nil {
@@ -258,7 +261,8 @@ func (o *Oracle) RotateRootCredentials(ctx context.Context, statements []string)
 			}
 
 			m := map[string]string{
-				"username": o.Username,
+				// Uppercased for consistency with Oracle and other CRUD functions
+				"username": strings.ToUpper(o.Username),
 				"password": password,
 			}
 
@@ -293,6 +297,7 @@ func (o *Oracle) SetCredentials(ctx context.Context, statements dbplugin.Stateme
 	}
 
 	variables := map[string]string{
+		// Uppercase because Oracle uppercases the username on creation but not when logging in
 		"username": strings.ToUpper(username),
 		"password": password,
 	}
