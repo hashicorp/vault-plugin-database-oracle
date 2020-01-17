@@ -468,7 +468,7 @@ func TestSetCredentials_missingArguments(t *testing.T) {
 
 			updatedUser, updatedPass, err := db.SetCredentials(ctx, dbplugin.Statements{}, test.userConfig)
 			if err == nil {
-				t.Fatalf("err: %s", err)
+				t.Fatalf("error expected, got nil")
 			}
 			if updatedUser != "" {
 				t.Fatalf("username provided when it should have errored: %s", updatedUser)
