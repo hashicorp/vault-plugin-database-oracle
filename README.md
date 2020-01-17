@@ -60,7 +60,7 @@ Sample commands for registering and starting to use the plugin:
 $ shasum -a 256 vault-plugin-database-oracle > /tmp/oracle-plugin.sha256
 
 $ vault write sys/plugins/catalog/database/vault-plugin-database-oracle \
-    sha_256=$(cat /tmp/oracle-plugin.sha256) \
+    sha256=$(cat /tmp/oracle-plugin.sha256) \
     command="vault-plugin-database-oracle"
 
 $ vault secrets enable database
