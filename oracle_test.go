@@ -490,7 +490,7 @@ func TestSetCredentials_rotationStatements(t *testing.T) {
 			rotationStatements: []string{},
 		},
 		"explicit default": {
-			rotationStatements: []string{`ALTER USER "{{username}}" IDENTIFIED BY "{{password}}"`},
+			rotationStatements: []string{defaultRotateCredsSql},
 		},
 	}
 

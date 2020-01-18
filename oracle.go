@@ -19,27 +19,19 @@ import (
 	"github.com/hashicorp/vault/sdk/helper/strutil"
 )
 
-const oracleTypeName string = "oci8"
-
-const oracleUsernameLength = 30
-const oracleDisplayNameMaxLength = 8
-const oraclePasswordLength = 30
-
 const (
+	oracleTypeName             = "oci8"
+	oracleUsernameLength       = 30
+	oracleDisplayNameMaxLength = 8
+
 	revocationSQL = `
 REVOKE CONNECT FROM {{name}};
 REVOKE CREATE SESSION FROM {{name}};
 DROP USER {{name}};
 `
 
-	defaultRotateRootCredentialsSql = `
-ALTER USER {{username}} IDENTIFIED BY {{password}};
-`
+	defaultRotateCredsSql = `ALTER USER {{username}} IDENTIFIED BY "{{password}}"`
 )
-
-const sessionQuerySQL = `SELECT sid, serial#, username FROM v$session WHERE username = UPPER('{{name}}')`
-
-const sessionKillSQL = `ALTER SYSTEM KILL SESSION '%d,%d' IMMEDIATE`
 
 type Oracle struct {
 	*connutil.SQLConnectionProducer
@@ -143,9 +135,7 @@ func (o *Oracle) CreateUser(ctx context.Context, statements dbplugin.Statements,
 			}
 
 			m := map[string]string{
-				// Uppercase the username because Oracle does this already for us. This way our code is consistently
-				// uppercased in case this behavior changes or is different between Oracle versions.
-				"name":       strings.ToUpper(username),
+				"name":       username,
 				"password":   password,
 				"expiration": expirationStr,
 			}
@@ -209,8 +199,7 @@ func (o *Oracle) RevokeUser(ctx context.Context, statements dbplugin.Statements,
 			}
 
 			m := map[string]string{
-				// Uppercased for consistency with Oracle and other CRUD functions
-				"name": strings.ToUpper(username),
+				"name": username,
 			}
 
 			if err := dbtxn.ExecuteTxQuery(ctx, tx, m, query); err != nil {
@@ -232,7 +221,7 @@ func (o *Oracle) RotateRootCredentials(ctx context.Context, statements []string)
 
 	rotateStatements := statements
 	if len(rotateStatements) == 0 {
-		rotateStatements = []string{defaultRotateRootCredentialsSql}
+		rotateStatements = []string{defaultRotateCredsSql}
 	}
 
 	db, err := o.getConnection(ctx)
@@ -261,8 +250,7 @@ func (o *Oracle) RotateRootCredentials(ctx context.Context, statements []string)
 			}
 
 			m := map[string]string{
-				// Uppercased for consistency with Oracle and other CRUD functions
-				"username": strings.ToUpper(o.Username),
+				"username": o.Username,
 				"password": password,
 			}
 
@@ -287,7 +275,7 @@ func (o *Oracle) RotateRootCredentials(ctx context.Context, statements []string)
 func (o *Oracle) SetCredentials(ctx context.Context, statements dbplugin.Statements, staticUser dbplugin.StaticUserConfig) (username, password string, err error) {
 	rotateStatements := statements.Rotation
 	if len(rotateStatements) == 0 {
-		rotateStatements = []string{`ALTER USER "{{username}}" IDENTIFIED BY "{{password}}"`}
+		rotateStatements = []string{defaultRotateCredsSql}
 	}
 
 	username = staticUser.Username
@@ -297,8 +285,7 @@ func (o *Oracle) SetCredentials(ctx context.Context, statements dbplugin.Stateme
 	}
 
 	variables := map[string]string{
-		// Uppercase because Oracle uppercases the username on creation but not when logging in
-		"username": strings.ToUpper(username),
+		"username": username,
 		"password": password,
 	}
 
@@ -323,9 +310,10 @@ func (o *Oracle) SetCredentials(ctx context.Context, statements dbplugin.Stateme
 	defer tx.Rollback()
 
 	for _, rawQuery := range queries {
-		err := dbtxn.ExecuteTxQuery(ctx, tx, variables, rawQuery)
+		parsedQuery := dbutil.QueryHelper(rawQuery, variables)
+		err := dbtxn.ExecuteTxQuery(ctx, tx, nil, parsedQuery)
 		if err != nil {
-			return "", "", fmt.Errorf("unable to execute rotation query: %w", err)
+			return "", "", fmt.Errorf("unable to execute rotation query [%s]: %w", parsedQuery, err)
 		}
 	}
 
@@ -352,7 +340,11 @@ func splitQueries(rawQueries []string) (queries []string) {
 }
 
 func (o *Oracle) disconnectSession(db *sql.DB, username string) error {
-	disconnectStmt, err := db.Prepare(strings.Replace(sessionQuerySQL, "{{name}}", username, -1))
+	disconnectVars := map[string]string{
+		"name": username,
+	}
+	disconnectQuery := dbutil.QueryHelper(`SELECT sid, serial#, username FROM v$session WHERE username = UPPER('{{name}}')`, disconnectVars)
+	disconnectStmt, err := db.Prepare(disconnectQuery)
 	if err != nil {
 		return err
 	}
@@ -368,7 +360,8 @@ func (o *Oracle) disconnectSession(db *sql.DB, username string) error {
 			if err != nil {
 				return err
 			}
-			killStatement := fmt.Sprintf(sessionKillSQL, sessionID, serialNumber)
+
+			killStatement := fmt.Sprintf(`ALTER SYSTEM KILL SESSION '%d,%d' IMMEDIATE`, sessionID, serialNumber)
 			_, err = db.Exec(killStatement)
 			if err != nil {
 				return err
