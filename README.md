@@ -49,6 +49,8 @@ Then, `git clone` this repository into your `$GOPATH` and `go build -o vault-plu
 
 ## Installation
 
+**See [Case Sensitivity](#case-sensitivity) for important information about custom creation & rotation statements.**
+
 The Vault plugin system is documented on the [Vault documentation site](https://www.vaultproject.io/docs/internals/plugins.html).
 
 You will need to define a plugin directory using the `plugin_directory` configuration directive, then place the
@@ -81,6 +83,14 @@ If running the plugin on MacOS you may run into an issue where the OS prevents t
 See [How to open an app that hasn't been notarized or is from an unidentified developer](https://support.apple.com/en-us/HT202491)
 on Apple's support website to be able to run this.
 
-## Usage Notes
+## Usage
+
+### Case Sensitivity
+
+It is important that you do NOT specify double quotes around the username in any of the creation or rotation statements.
+Otherwise Oracle may create/look up a user with the incorrect name (`foo_bar` instead of `FOO_BAR`).
+
+### Default statements
+
 The [rotation statements](https://www.vaultproject.io/api/secret/databases/index.html#rotation_statements) are optional
-and will default to `ALTER USER "{{username}}" IDENTIFIED BY "{{password}}"`
+and will default to `ALTER USER {{username}} IDENTIFIED BY "{{password}}"`
