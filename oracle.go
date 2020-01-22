@@ -19,27 +19,19 @@ import (
 	"github.com/hashicorp/vault/sdk/helper/strutil"
 )
 
-const oracleTypeName string = "oci8"
-
-const oracleUsernameLength = 30
-const oracleDisplayNameMaxLength = 8
-const oraclePasswordLength = 30
-
 const (
+	oracleTypeName             = "oci8"
+	oracleUsernameLength       = 30
+	oracleDisplayNameMaxLength = 8
+
 	revocationSQL = `
 REVOKE CONNECT FROM {{name}};
 REVOKE CREATE SESSION FROM {{name}};
 DROP USER {{name}};
 `
 
-	defaultRotateRootCredentialsSql = `
-ALTER USER {{username}} IDENTIFIED BY {{password}};
-`
+	defaultRotateCredsSql = `ALTER USER {{username}} IDENTIFIED BY "{{password}}"`
 )
-
-const sessionQuerySQL = `SELECT sid, serial#, username FROM v$session WHERE username = UPPER('{{name}}')`
-
-const sessionKillSQL = `ALTER SYSTEM KILL SESSION '%d,%d' IMMEDIATE`
 
 type Oracle struct {
 	*connutil.SQLConnectionProducer
@@ -130,9 +122,8 @@ func (o *Oracle) CreateUser(ctx context.Context, statements dbplugin.Statements,
 		return "", "", err
 
 	}
-	defer func() {
-		tx.Rollback()
-	}()
+	// Effectively a no-op if the transaction commits successfully
+	defer tx.Rollback()
 
 	// Execute each query
 	for _, stmt := range statements.Creation {
@@ -183,9 +174,8 @@ func (o *Oracle) RevokeUser(ctx context.Context, statements dbplugin.Statements,
 	if err != nil {
 		return err
 	}
-	defer func() {
-		tx.Rollback()
-	}()
+	// Effectively a no-op if the transaction commits successfully
+	defer tx.Rollback()
 
 	if err := o.disconnectSession(db, username); err != nil {
 		return err
@@ -229,7 +219,7 @@ func (o *Oracle) RotateRootCredentials(ctx context.Context, statements []string)
 
 	rotateStatements := statements
 	if len(rotateStatements) == 0 {
-		rotateStatements = []string{defaultRotateRootCredentialsSql}
+		rotateStatements = []string{defaultRotateCredsSql}
 	}
 
 	db, err := o.getConnection(ctx)
@@ -241,9 +231,8 @@ func (o *Oracle) RotateRootCredentials(ctx context.Context, statements []string)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		tx.Rollback()
-	}()
+	// Effectively a no-op if the transaction commits successfully
+	defer tx.Rollback()
 
 	password, err := o.GeneratePassword()
 	if err != nil {
@@ -280,8 +269,80 @@ func (o *Oracle) RotateRootCredentials(ctx context.Context, statements []string)
 	return o.RawConfig, nil
 }
 
+func (o *Oracle) SetCredentials(ctx context.Context, statements dbplugin.Statements, staticUser dbplugin.StaticUserConfig) (username, password string, err error) {
+	rotateStatements := statements.Rotation
+	if len(rotateStatements) == 0 {
+		rotateStatements = []string{defaultRotateCredsSql}
+	}
+
+	username = staticUser.Username
+	password = staticUser.Password
+	if username == "" || password == "" {
+		return "", "", errors.New("must provide both username and password")
+	}
+
+	variables := map[string]string{
+		"username": username,
+		"password": password,
+	}
+
+	queries := splitQueries(rotateStatements)
+	if len(queries) == 0 { // Extra check to protect against future changes
+		return "", "", errors.New("no rotation queries found")
+	}
+
+	// Lock the SQL connection
+	o.Lock()
+	defer o.Unlock()
+
+	db, err := o.getConnection(ctx)
+	if err != nil {
+		return "", "", fmt.Errorf("unable to get database connection: %w", err)
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", "", fmt.Errorf("unable to create database transaction: %w", err)
+	}
+	// Effectively a no-op if the transaction commits successfully
+	defer tx.Rollback()
+
+	for _, rawQuery := range queries {
+		parsedQuery := dbutil.QueryHelper(rawQuery, variables)
+		err := dbtxn.ExecuteTxQuery(ctx, tx, nil, parsedQuery)
+		if err != nil {
+			return "", "", fmt.Errorf("unable to execute rotation query [%s]: %w", parsedQuery, err)
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return "", "", fmt.Errorf("unable to commit rotation queries: %w", err)
+	}
+
+	return username, password, nil
+}
+
+func splitQueries(rawQueries []string) (queries []string) {
+	for _, rawQ := range rawQueries {
+		split := strutil.ParseArbitraryStringSlice(rawQ, ";")
+		for _, newQ := range split {
+			newQ = strings.TrimSpace(newQ)
+			if newQ == "" {
+				continue
+			}
+			queries = append(queries, newQ)
+		}
+	}
+	return queries
+}
+
 func (o *Oracle) disconnectSession(db *sql.DB, username string) error {
-	disconnectStmt, err := db.Prepare(strings.Replace(sessionQuerySQL, "{{name}}", username, -1))
+	disconnectVars := map[string]string{
+		"name": username,
+	}
+	disconnectQuery := dbutil.QueryHelper(`SELECT sid, serial#, username FROM v$session WHERE username = UPPER('{{name}}')`, disconnectVars)
+	disconnectStmt, err := db.Prepare(disconnectQuery)
 	if err != nil {
 		return err
 	}
@@ -297,7 +358,8 @@ func (o *Oracle) disconnectSession(db *sql.DB, username string) error {
 			if err != nil {
 				return err
 			}
-			killStatement := fmt.Sprintf(sessionKillSQL, sessionID, serialNumber)
+
+			killStatement := fmt.Sprintf(`ALTER SYSTEM KILL SESSION '%d,%d' IMMEDIATE`, sessionID, serialNumber)
 			_, err = db.Exec(killStatement)
 			if err != nil {
 				return err
