@@ -87,7 +87,7 @@ on Apple's support website to be able to run this.
 
 ### Case Sensitivity
 
-It is important that you do NOT specify double quotes around the username in any of the creation or rotation statements.
+It is important that you do NOT specify double quotes around the username in any of the SQL statements.
 Otherwise Oracle may create/look up a user with the incorrect name (`foo_bar` instead of `FOO_BAR`).
 
 ### Default statements
