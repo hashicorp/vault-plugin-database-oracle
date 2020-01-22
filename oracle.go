@@ -122,9 +122,8 @@ func (o *Oracle) CreateUser(ctx context.Context, statements dbplugin.Statements,
 		return "", "", err
 
 	}
-	defer func() {
-		tx.Rollback()
-	}()
+	// Effectively a no-op if the transaction commits successfully
+	defer tx.Rollback()
 
 	// Execute each query
 	for _, stmt := range statements.Creation {
@@ -175,9 +174,8 @@ func (o *Oracle) RevokeUser(ctx context.Context, statements dbplugin.Statements,
 	if err != nil {
 		return err
 	}
-	defer func() {
-		tx.Rollback()
-	}()
+	// Effectively a no-op if the transaction commits successfully
+	defer tx.Rollback()
 
 	if err := o.disconnectSession(db, username); err != nil {
 		return err
@@ -233,9 +231,8 @@ func (o *Oracle) RotateRootCredentials(ctx context.Context, statements []string)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		tx.Rollback()
-	}()
+	// Effectively a no-op if the transaction commits successfully
+	defer tx.Rollback()
 
 	password, err := o.GeneratePassword()
 	if err != nil {
@@ -307,6 +304,7 @@ func (o *Oracle) SetCredentials(ctx context.Context, statements dbplugin.Stateme
 	if err != nil {
 		return "", "", fmt.Errorf("unable to create database transaction: %w", err)
 	}
+	// Effectively a no-op if the transaction commits successfully
 	defer tx.Rollback()
 
 	for _, rawQuery := range queries {
