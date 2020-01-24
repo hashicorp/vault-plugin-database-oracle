@@ -314,7 +314,7 @@ func (o *Oracle) SetCredentials(ctx context.Context, statements dbplugin.Stateme
 		parsedQuery := dbutil.QueryHelper(rawQuery, variables)
 		err := dbtxn.ExecuteTxQuery(ctx, tx, nil, parsedQuery)
 		if err != nil {
-			return "", "", fmt.Errorf("unable to execute rotation query [%s]: %w", parsedQuery, err)
+			return "", "", fmt.Errorf("unable to execute rotation query [%s]: %w", rawQuery, err)
 		}
 	}
 
