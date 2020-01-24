@@ -89,42 +89,65 @@ func TestOracle_Initialize(t *testing.T) {
 }
 
 func TestOracle_CreateUser(t *testing.T) {
-	connURL, cleanup := prepareOracleTestContainer(t)
-	defer cleanup()
-
-	connectionDetails := map[string]interface{}{
-		"connection_url": connURL,
+	type testCase struct {
+		creationStmts string
 	}
 
-	db := new()
-	err := db.Initialize(context.Background(), connectionDetails, true)
-
-	if err != nil {
-		t.Fatalf("err: %s", err)
+	tests := map[string]testCase{
+		"name creation": {
+			creationStmts: `
+				CREATE USER {{name}} IDENTIFIED BY {{password}};
+				GRANT CONNECT TO {{name}};
+				GRANT CREATE SESSION TO {{name}};`,
+		},
+		"username creation": {
+			creationStmts: `
+				CREATE USER {{username}} IDENTIFIED BY {{password}};
+				GRANT CONNECT TO {{username}};
+				GRANT CREATE SESSION TO {{username}};`,
+		},
 	}
 
-	usernameConfig := dbplugin.UsernameConfig{
-		DisplayName: "test",
-		RoleName:    "test",
-	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			connURL, cleanup := prepareOracleTestContainer(t)
+			defer cleanup()
 
-	// Test with no configured Creation Statement
-	_, _, err = db.CreateUser(context.Background(), dbplugin.Statements{}, usernameConfig, time.Now().Add(time.Minute))
-	if err == nil {
-		t.Fatal("Expected error when no creation statement is provided")
-	}
+			connectionDetails := map[string]interface{}{
+				"connection_url": connURL,
+			}
 
-	statements := dbplugin.Statements{
-		CreationStatements: creationStatements,
-	}
+			db := new()
+			err := db.Initialize(context.Background(), connectionDetails, true)
 
-	username, password, err := db.CreateUser(context.Background(), statements, usernameConfig, time.Now().Add(time.Minute))
-	if err != nil {
-		t.Fatalf("err: %s", err)
-	}
+			if err != nil {
+				t.Fatalf("err: %s", err)
+			}
 
-	if err = testCredentialsExist(connURL, username, password); err != nil {
-		t.Fatalf("Could not connect with new credentials: %s", err)
+			usernameConfig := dbplugin.UsernameConfig{
+				DisplayName: "test",
+				RoleName:    "test",
+			}
+
+			// Test with no configured Creation Statement
+			_, _, err = db.CreateUser(context.Background(), dbplugin.Statements{}, usernameConfig, time.Now().Add(time.Minute))
+			if err == nil {
+				t.Fatal("Expected error when no creation statement is provided")
+			}
+
+			statements := dbplugin.Statements{
+				CreationStatements: test.creationStmts,
+			}
+
+			username, password, err := db.CreateUser(context.Background(), statements, usernameConfig, time.Now().Add(time.Minute))
+			if err != nil {
+				t.Fatalf("err: %s", err)
+			}
+
+			if err = testCredentialsExist(connURL, username, password); err != nil {
+				t.Fatalf("Could not connect with new credentials: %s", err)
+			}
+		})
 	}
 }
 
@@ -149,7 +172,10 @@ func TestOracle_RenewUser(t *testing.T) {
 	}
 
 	statements := dbplugin.Statements{
-		CreationStatements: creationStatements,
+		CreationStatements: `
+			CREATE USER {{name}} IDENTIFIED BY {{password}};
+			GRANT CONNECT TO {{name}};
+			GRANT CREATE SESSION TO {{name}};`,
 	}
 
 	username, password, err := db.CreateUser(context.Background(), statements, usernameConfig, time.Now().Add(2*time.Second))
@@ -195,7 +221,10 @@ func TestOracle_RevokeUser(t *testing.T) {
 	}
 
 	statements := dbplugin.Statements{
-		CreationStatements: creationStatements,
+		CreationStatements: `
+			CREATE USER {{name}} IDENTIFIED BY {{password}};
+			GRANT CONNECT TO {{name}};
+			GRANT CREATE SESSION TO {{name}};`,
 	}
 
 	username, password, err := db.CreateUser(context.Background(), statements, usernameConfig, time.Now().Add(2*time.Second))
@@ -218,50 +247,73 @@ func TestOracle_RevokeUser(t *testing.T) {
 }
 
 func TestOracle_RevokeUserWithCustomStatements(t *testing.T) {
-	connURL, cleanup := prepareOracleTestContainer(t)
-	defer cleanup()
-
-	connectionDetails := map[string]interface{}{
-		"connection_url": connURL,
+	type testCase struct {
+		revokeStmts string
 	}
 
-	db := new()
-
-	err := db.Initialize(context.Background(), connectionDetails, true)
-	if err != nil {
-		t.Fatalf("err: %s", err)
+	tests := map[string]testCase{
+		"name revoke": {
+			revokeStmts: `
+				REVOKE CONNECT FROM {{name}};
+				REVOKE CREATE SESSION FROM {{name}};
+				DROP USER {{name}};`,
+		},
+		"username revoke": {
+			revokeStmts: `
+				REVOKE CONNECT FROM {{username}};
+				REVOKE CREATE SESSION FROM {{username}};
+				DROP USER {{username}};`,
+		},
+		"default revoke": {},
 	}
 
-	usernameConfig := dbplugin.UsernameConfig{
-		DisplayName: "test",
-		RoleName:    "test",
-	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			connURL, cleanup := prepareOracleTestContainer(t)
+			defer cleanup()
 
-	statements := dbplugin.Statements{
-		CreationStatements: creationStatements,
-	}
+			connectionDetails := map[string]interface{}{
+				"connection_url": connURL,
+			}
 
-	username, password, err := db.CreateUser(context.Background(), statements, usernameConfig, time.Now().Add(2*time.Second))
-	if err != nil {
-		t.Fatalf("err: %s", err)
-	}
+			db := new()
 
-	if err = testCredentialsExist(connURL, username, password); err != nil {
-		t.Fatalf("Could not connect with new credentials: %s", err)
-	}
+			err := db.Initialize(context.Background(), connectionDetails, true)
+			if err != nil {
+				t.Fatalf("err: %s", err)
+			}
 
-	statements.RevocationStatements = `
-REVOKE CONNECT FROM {{name}};
-REVOKE CREATE SESSION FROM {{name}};
-DROP USER {{name}};
-`
-	err = db.RevokeUser(context.Background(), statements, username)
-	if err != nil {
-		t.Fatalf("err: %s", err)
-	}
+			usernameConfig := dbplugin.UsernameConfig{
+				DisplayName: "test",
+				RoleName:    "test",
+			}
 
-	if err := testCredentialsExist(connURL, username, password); err == nil {
-		t.Fatal("Credentials were not revoked")
+			statements := dbplugin.Statements{
+				CreationStatements: `
+					CREATE USER {{name}} IDENTIFIED BY {{password}};
+					GRANT CONNECT TO {{name}};
+					GRANT CREATE SESSION TO {{name}};`,
+				RevocationStatements: test.revokeStmts,
+			}
+
+			username, password, err := db.CreateUser(context.Background(), statements, usernameConfig, time.Now().Add(2*time.Second))
+			if err != nil {
+				t.Fatalf("err: %s", err)
+			}
+
+			if err = testCredentialsExist(connURL, username, password); err != nil {
+				t.Fatalf("Could not connect with new credentials: %s", err)
+			}
+
+			err = db.RevokeUser(context.Background(), statements, username)
+			if err != nil {
+				t.Fatalf("err: %s", err)
+			}
+
+			if err := testCredentialsExist(connURL, username, password); err == nil {
+				t.Fatal("Credentials were not revoked")
+			}
+		})
 	}
 }
 
@@ -327,12 +379,6 @@ func testCredentialsExist(connString, username, password string) error {
 	defer db.Close()
 	return db.Ping()
 }
-
-const creationStatements = `
-CREATE USER {{name}} IDENTIFIED BY {{password}};
-GRANT CONNECT TO {{name}};
-GRANT CREATE SESSION TO {{name}};
-`
 
 func TestSplitQueries(t *testing.T) {
 	type testCase struct {
@@ -492,6 +538,11 @@ func TestSetCredentials_rotationStatements(t *testing.T) {
 		"explicit default": {
 			rotationStatements: []string{defaultRotateCredsSql},
 		},
+		"name rotation": {
+			rotationStatements: []string{
+				`ALTER USER {{name}} IDENTIFIED BY "{{password}}"`,
+			},
+		},
 	}
 
 	for name, test := range tests {
@@ -515,7 +566,11 @@ func TestSetCredentials_rotationStatements(t *testing.T) {
 			}
 
 			statements := dbplugin.Statements{
-				Creation: []string{creationStatements},
+				Creation: []string{`
+					CREATE USER {{username}} IDENTIFIED BY {{password}};
+					GRANT CONNECT TO {{username}};
+					GRANT CREATE SESSION TO {{username}};`,
+				},
 				Rotation: test.rotationStatements,
 			}
 
