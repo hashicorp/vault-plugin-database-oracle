@@ -503,18 +503,7 @@ func TestSetCredentials_missingArguments(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			connURL, cleanup := prepareOracleTestContainer(t)
-			defer cleanup()
-
-			connectionDetails := map[string]interface{}{
-				"connection_url": connURL,
-			}
-
 			db := new()
-			err := db.Initialize(context.Background(), connectionDetails, true)
-			if err != nil {
-				t.Fatalf("err: %s", err)
-			}
 
 			// Create a context with a timeout so we don't spin forever in a worst case
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
