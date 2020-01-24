@@ -25,9 +25,9 @@ const (
 	oracleDisplayNameMaxLength = 8
 
 	revocationSQL = `
-REVOKE CONNECT FROM {{name}};
-REVOKE CREATE SESSION FROM {{name}};
-DROP USER {{name}};
+REVOKE CONNECT FROM {{username}};
+REVOKE CREATE SESSION FROM {{username}};
+DROP USER {{username}};
 `
 
 	defaultRotateCredsSql = `ALTER USER {{username}} IDENTIFIED BY "{{password}}"`
@@ -113,7 +113,6 @@ func (o *Oracle) CreateUser(ctx context.Context, statements dbplugin.Statements,
 	db, err := o.getConnection(ctx)
 	if err != nil {
 		return "", "", err
-
 	}
 
 	// Start a transaction
@@ -134,7 +133,8 @@ func (o *Oracle) CreateUser(ctx context.Context, statements dbplugin.Statements,
 			}
 
 			m := map[string]string{
-				"name":       username,
+				"username":   username,
+				"name":       username, // backwards compatibility
 				"password":   password,
 				"expiration": expirationStr,
 			}
@@ -197,7 +197,8 @@ func (o *Oracle) RevokeUser(ctx context.Context, statements dbplugin.Statements,
 			}
 
 			m := map[string]string{
-				"name": username,
+				"username": username,
+				"name":     username, // backwards compatibility
 			}
 
 			if err := dbtxn.ExecuteTxQuery(ctx, tx, m, query); err != nil {
@@ -248,6 +249,7 @@ func (o *Oracle) RotateRootCredentials(ctx context.Context, statements []string)
 
 			m := map[string]string{
 				"username": o.Username,
+				"name":     o.Username, // backwards compatibility
 				"password": password,
 			}
 
@@ -283,6 +285,7 @@ func (o *Oracle) SetCredentials(ctx context.Context, statements dbplugin.Stateme
 
 	variables := map[string]string{
 		"username": username,
+		"name":     username, // backwards compatibility
 		"password": password,
 	}
 
@@ -311,7 +314,7 @@ func (o *Oracle) SetCredentials(ctx context.Context, statements dbplugin.Stateme
 		parsedQuery := dbutil.QueryHelper(rawQuery, variables)
 		err := dbtxn.ExecuteTxQuery(ctx, tx, nil, parsedQuery)
 		if err != nil {
-			return "", "", fmt.Errorf("unable to execute rotation query [%s]: %w", parsedQuery, err)
+			return "", "", fmt.Errorf("unable to execute rotation query [%s]: %w", rawQuery, err)
 		}
 	}
 
@@ -339,9 +342,9 @@ func splitQueries(rawQueries []string) (queries []string) {
 
 func (o *Oracle) disconnectSession(db *sql.DB, username string) error {
 	disconnectVars := map[string]string{
-		"name": username,
+		"username": username,
 	}
-	disconnectQuery := dbutil.QueryHelper(`SELECT sid, serial#, username FROM v$session WHERE username = UPPER('{{name}}')`, disconnectVars)
+	disconnectQuery := dbutil.QueryHelper(`SELECT sid, serial#, username FROM v$session WHERE username = UPPER('{{username}}')`, disconnectVars)
 	disconnectStmt, err := db.Prepare(disconnectQuery)
 	if err != nil {
 		return err
