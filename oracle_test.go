@@ -90,7 +90,8 @@ func TestOracle_Initialize(t *testing.T) {
 
 func TestOracle_CreateUser(t *testing.T) {
 	type testCase struct {
-		creationStmts string
+		creationStmts    string
+		expectCreateFail bool
 	}
 
 	tests := map[string]testCase{
@@ -99,12 +100,18 @@ func TestOracle_CreateUser(t *testing.T) {
 				CREATE USER {{name}} IDENTIFIED BY {{password}};
 				GRANT CONNECT TO {{name}};
 				GRANT CREATE SESSION TO {{name}};`,
+			expectCreateFail: false,
 		},
 		"username creation": {
 			creationStmts: `
 				CREATE USER {{username}} IDENTIFIED BY {{password}};
 				GRANT CONNECT TO {{username}};
 				GRANT CREATE SESSION TO {{username}};`,
+			expectCreateFail: false,
+		},
+		"empty creation": {
+			creationStmts:    "",
+			expectCreateFail: true,
 		},
 	}
 
@@ -129,22 +136,23 @@ func TestOracle_CreateUser(t *testing.T) {
 				RoleName:    "test",
 			}
 
-			// Test with no configured Creation Statement
-			_, _, err = db.CreateUser(context.Background(), dbplugin.Statements{}, usernameConfig, time.Now().Add(time.Minute))
-			if err == nil {
-				t.Fatal("Expected error when no creation statement is provided")
-			}
-
 			statements := dbplugin.Statements{
 				CreationStatements: test.creationStmts,
 			}
 
 			username, password, err := db.CreateUser(context.Background(), statements, usernameConfig, time.Now().Add(time.Minute))
-			if err != nil {
-				t.Fatalf("err: %s", err)
+			switch {
+			case test.expectCreateFail && err == nil:
+				t.Fatalf("error expected, got nil")
+			case !test.expectCreateFail && err != nil:
+				t.Fatalf("err not expected, got: %s", err)
 			}
 
-			if err = testCredentialsExist(connURL, username, password); err != nil {
+			err = testCredentialsExist(connURL, username, password)
+			switch {
+			case test.expectCreateFail && err == nil:
+				t.Fatalf("Credentials were created when they shouldn't have been")
+			case !test.expectCreateFail && err != nil:
 				t.Fatalf("Could not connect with new credentials: %s", err)
 			}
 		})
