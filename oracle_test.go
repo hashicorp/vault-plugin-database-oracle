@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -141,6 +142,9 @@ func TestOracle_CreateUser(t *testing.T) {
 			}
 
 			username, password, err := db.CreateUser(context.Background(), statements, usernameConfig, time.Now().Add(time.Minute))
+			if strings.ToUpper(username) != username {
+				t.Fatalf("Username must be uppercase")
+			}
 			switch {
 			case test.expectCreateFail && err == nil:
 				t.Fatalf("error expected, got nil")

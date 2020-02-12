@@ -98,6 +98,7 @@ func (o *Oracle) CreateUser(ctx context.Context, statements dbplugin.Statements,
 	if err != nil {
 		return "", "", err
 	}
+	username = strings.ToUpper(username)
 
 	password, err = o.GeneratePassword()
 	if err != nil {
