@@ -344,7 +344,7 @@ func (o *Oracle) disconnectSession(db *sql.DB, username string) error {
 	disconnectVars := map[string]string{
 		"username": username,
 	}
-	disconnectQuery := dbutil.QueryHelper(`SELECT sid, serial#, username FROM v$session WHERE username = UPPER('{{username}}')`, disconnectVars)
+	disconnectQuery := dbutil.QueryHelper(`SELECT inst_id, sid, serial#, username FROM gv$session WHERE username = UPPER('{{username}}')`, disconnectVars)
 	disconnectStmt, err := db.Prepare(disconnectQuery)
 	if err != nil {
 		return err
@@ -355,14 +355,14 @@ func (o *Oracle) disconnectSession(db *sql.DB, username string) error {
 	} else {
 		defer rows.Close()
 		for rows.Next() {
-			var sessionID, serialNumber int
+			var instID, sessionID, serialNumber int
 			var username sql.NullString
-			err = rows.Scan(&sessionID, &serialNumber, &username)
+			err = rows.Scan(&instID, &sessionID, &serialNumber, &username)
 			if err != nil {
 				return err
 			}
 
-			killStatement := fmt.Sprintf(`ALTER SYSTEM KILL SESSION '%d,%d' IMMEDIATE`, sessionID, serialNumber)
+			killStatement := fmt.Sprintf(`ALTER SYSTEM KILL SESSION '%d,%d,@%d' IMMEDIATE`, sessionID, serialNumber, instID)
 			_, err = db.Exec(killStatement)
 			if err != nil {
 				return err
