@@ -12,8 +12,8 @@ require (
 	github.com/docker/go-units v0.3.3 // indirect
 	github.com/google/go-cmp v0.3.0 // indirect
 	github.com/gotestyourself/gotestyourself v2.2.0+incompatible // indirect
-	github.com/hashicorp/vault/api v1.0.5-0.20200215224050-f6547fa8e820
-	github.com/hashicorp/vault/sdk v0.1.14-0.20200215224050-f6547fa8e820
+	github.com/hashicorp/vault/api v1.0.5-0.20200317185738-82f498082f02
+	github.com/hashicorp/vault/sdk v0.1.14-0.20200317185738-82f498082f02
 	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d // indirect
 	github.com/mattn/go-oci8 v0.0.0-20190410054007-e00f23025626
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
