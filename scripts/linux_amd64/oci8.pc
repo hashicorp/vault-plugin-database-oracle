@@ -1,8 +1,8 @@
-libdir=/usr/lib/oracle/19.3/client64/lib
-includedir=/usr/include/oracle/19.3/client64
+libdir=/usr/lib/oracle/19.6/client64/lib
+includedir=/usr/include/oracle/19.6/client64
 
 Name: oci8
 Description: oci8 library
 Libs: -L${libdir} -lclntsh
 Cflags: -I${includedir}
-Version: 19.3
+Version: 19.6
