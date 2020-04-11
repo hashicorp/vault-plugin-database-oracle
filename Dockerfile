@@ -28,12 +28,20 @@ RUN set -eux; \
 
 ENV GOPATH /go
 ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
+ENV PKG_CONFIG_PATH $GOPATH/src/github.com/hashicorp/vault-plugin-database-oracle/scripts/linux_amd64
 
 RUN yum install -y \
 		oracle-instantclient19.6-basic \
 		oracle-instantclient19.6-devel
 
 RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" "$GOPATH/src/github.com/hashicorp/vault-plugin-database-oracle" && chmod -R 777 "$GOPATH"
-WORKDIR $GOPATH/src/github.com/hashicorp/vault-plugin-database-oracle
 
-CMD make bootstrap bin
+WORKDIR $GOPATH/src/github.com/hashicorp/vault-plugin-database-oracle/
+
+COPY . .
+
+RUN mkdir -p test-results/go
+
+RUN make bootstrap
+
+CMD make bin

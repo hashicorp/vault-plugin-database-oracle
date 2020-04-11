@@ -1,3 +1,5 @@
+SHELL := /usr/bin/env bash -euo pipefail -c
+
 # Determine this makefile's path.
 # Be sure to place this BEFORE `include` directives, if any.
 THIS_FILE := $(lastword $(MAKEFILE_LIST))
@@ -37,5 +39,32 @@ bootstrap:
 		echo "Installing/Updating $$tool" ; \
 		go get -u $$tool; \
 	done
+
+# the following targets are run in CircleCI as part of the build/test jobs
+
+# build the build image
+build-cross-image:
+	docker build -t cross-image:latest .
+
+# use the pre-built image (with dependencies set-up) to build the binary
+build-in-container: build-cross-image
+	docker run --rm \
+	-v /var/run/docker.sock:/var/run/docker.sock \
+	-v $(CURDIR)/pkg:/go/src/github.com/hashicorp/vault-plugin-database-oracle/pkg \
+	cross-image:latest
+
+# run tests in the build container
+test-in-container: build-cross-image
+	docker run --rm \
+	-v /var/run/docker.sock:/var/run/docker.sock \
+	-v $(CURDIR)/test-results/go:/go/src/github.com/hashicorp/vault-plugin-database-oracle/test-results/go \
+	-e RUN_IN_CONTAINER=1 cross-image:latest \
+    make test-ci
+
+# when running in CirleCI - convert test results to junit xml (for storage)
+test-ci: fmtcheck generate
+	go get -x github.com/jstemmer/go-junit-report
+	CGO_ENABLED=1 go test $(TEST) -timeout=20m -parallel=4 \
+	-v | go-junit-report > test-results/go/go-test-report.xml
 
 .PHONY: bin default generate test fmt fmtcheck dev bootstrap
