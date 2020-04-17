@@ -16,5 +16,7 @@ jobs:
     # save build to CircleCI
     - store_artifacts:
         path: pkg
+    - store_artifacts:
+        path: test-results
     - store_test_results:
         path: test-results
