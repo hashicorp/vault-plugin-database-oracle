@@ -51,7 +51,8 @@ build-in-container: build-cross-image
 	docker run --rm \
 	-v /var/run/docker.sock:/var/run/docker.sock \
 	-v $(CURDIR)/pkg:/go/src/github.com/hashicorp/vault-plugin-database-oracle/pkg \
-	cross-image:latest
+	cross-image:latest \
+	make bin
 
 # run tests in the build container
 test-in-container: build-cross-image
@@ -65,6 +66,7 @@ test-in-container: build-cross-image
 test-ci: fmtcheck generate
 	go get -x github.com/jstemmer/go-junit-report
 	CGO_ENABLED=1 go test $(TEST) -timeout=20m -parallel=4 \
-	-v | go-junit-report > test-results/go/go-test-report.xml
+	-v | tee test-results/go/go-test-report.raw
+	go-junit-report < test-results/go/go-test-report.raw > test-results/go/go-test-report.xml
 
 .PHONY: bin default generate test fmt fmtcheck dev bootstrap

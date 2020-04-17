@@ -44,4 +44,4 @@ RUN mkdir -p test-results/go
 
 RUN make bootstrap
 
-CMD make bin
+CMD echo "Please specify a command, e.g. 'make bin' or 'make test-ci'"
