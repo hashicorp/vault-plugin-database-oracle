@@ -47,10 +47,14 @@ build-cross-image:
 	docker build -t cross-image:latest .
 
 # use the pre-built image (with dependencies set-up) to build the binary
+# by default this will result in the linux_amd64 binary being written to - pkg/bin/linux_amd64/
+# to build the dev binary to bin/ - export VAULT_DEV_BUILD=1
 build-in-container: build-cross-image
 	docker run --rm \
 	-v /var/run/docker.sock:/var/run/docker.sock \
 	-v $(CURDIR)/pkg:/go/src/github.com/hashicorp/vault-plugin-database-oracle/pkg \
+	-v $(CURDIR)/bin:/go/src/github.com/hashicorp/vault-plugin-database-oracle/bin \
+	-e VAULT_DEV_BUILD=${VAULT_DEV_BUILD} \
 	cross-image:latest \
 	make bin
 

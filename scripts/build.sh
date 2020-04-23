@@ -47,7 +47,7 @@ PKG_CONFIG_PATH="${DIR}/scripts/${XC_OS}_${XC_ARCH}/"
 echo "==> Building..."
 gox \
     -osarch="${XC_OSARCH}" \
-    -output "pkg/{{.OS}}_{{.Arch}}/vault-plugin-database-oracle" \
+    -output "pkg/bin/{{.OS}}_{{.Arch}}/vault-plugin-database-oracle" \
     ./plugin/.
 
 # Move all the compiled things to the $GOPATH/bin
@@ -57,7 +57,7 @@ IFS=$OLDIFS
 
 # Copy our OS/Arch to the bin/ directory
 if [ "${VAULT_DEV_BUILD}x" != "x" ]; then
-    DEV_PLATFORM="./pkg/$(go env GOOS)_$(go env GOARCH)"
+    DEV_PLATFORM="./pkg/bin/$(go env GOOS)_$(go env GOARCH)"
     for F in $(find ${DEV_PLATFORM} -mindepth 1 -maxdepth 1 -type f); do
         cp ${F} bin/
         cp ${F} ${MAIN_GOPATH}/bin/
@@ -67,7 +67,7 @@ fi
 if [ "${VAULT_DEV_BUILD}x" = "x" ]; then
     # Zip and copy to the dist dir
     echo "==> Packaging..."
-    for PLATFORM in $(find ./pkg -mindepth 1 -maxdepth 1 -type d); do
+    for PLATFORM in $(find ./pkg/bin -mindepth 1 -maxdepth 1 -type d); do
         OSARCH=$(basename ${PLATFORM})
         echo "--> ${OSARCH}"
 
