@@ -1,0 +1,22 @@
+version: 2
+jobs:
+  build:
+    machine:
+        docker_layer_caching: true
+    steps:
+    - checkout
+    - run:
+        name: "Build package"
+        command: |
+            make build-in-container
+    - run:
+        name: "Run tests"
+        command: |
+            make test-in-container
+    # save build to CircleCI
+    - store_artifacts:
+        path: pkg
+    - store_artifacts:
+        path: test-results
+    - store_test_results:
+        path: test-results
