@@ -13,7 +13,7 @@ func main() {
 	flags := apiClientMeta.FlagSet()
 	flags.Parse(os.Args[1:])
 
-	err := plugin.Run(apiClientMeta.GetTLSConfig())
+	err := plugin.Run()
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
