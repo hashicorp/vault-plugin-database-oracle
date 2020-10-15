@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/vault/sdk/database/newdbplugin"
+	dbplugin "github.com/hashicorp/vault/sdk/database/dbplugin/v5"
 	"github.com/tgulacsi/go/orahlp"
 	dockertest "gopkg.in/ory-am/dockertest.v3"
 )
@@ -95,7 +95,7 @@ func TestOracle_Initialize(t *testing.T) {
 	expectedConfig := map[string]interface{}{
 		"connection_url": connURL,
 	}
-	req := newdbplugin.InitializeRequest{
+	req := dbplugin.InitializeRequest{
 		Config: map[string]interface{}{
 			"connection_url": connURL,
 		},
@@ -155,7 +155,7 @@ func TestOracle_NewUser(t *testing.T) {
 			defer cleanup()
 
 			db := new()
-			initReq := newdbplugin.InitializeRequest{
+			initReq := dbplugin.InitializeRequest{
 				Config: map[string]interface{}{
 					"connection_url": connURL,
 				},
@@ -168,12 +168,12 @@ func TestOracle_NewUser(t *testing.T) {
 
 			password := "y8fva_sdVA3rasf"
 
-			createReq := newdbplugin.NewUserRequest{
-				UsernameConfig: newdbplugin.UsernameMetadata{
+			createReq := dbplugin.NewUserRequest{
+				UsernameConfig: dbplugin.UsernameMetadata{
 					DisplayName: "test",
 					RoleName:    "test",
 				},
-				Statements: newdbplugin.Statements{
+				Statements: dbplugin.Statements{
 					Commands: test.creationStmts,
 				},
 				Password:   password,
@@ -211,7 +211,7 @@ func TestOracle_RenewUser(t *testing.T) {
 
 	db := new()
 
-	initReq := newdbplugin.InitializeRequest{
+	initReq := dbplugin.InitializeRequest{
 		Config: map[string]interface{}{
 			"connection_url": connURL,
 		},
@@ -224,12 +224,12 @@ func TestOracle_RenewUser(t *testing.T) {
 
 	password := "y8fva_sdVA3rasf"
 
-	createReq := newdbplugin.NewUserRequest{
-		UsernameConfig: newdbplugin.UsernameMetadata{
+	createReq := dbplugin.NewUserRequest{
+		UsernameConfig: dbplugin.UsernameMetadata{
 			DisplayName: "test",
 			RoleName:    "test",
 		},
-		Statements: newdbplugin.Statements{
+		Statements: dbplugin.Statements{
 			Commands: []string{`
 				CREATE USER {{name}} IDENTIFIED BY {{password}};
 				GRANT CONNECT TO {{name}};
@@ -253,9 +253,9 @@ func TestOracle_RenewUser(t *testing.T) {
 		t.Fatalf("Could not connect with new credentials: %s", err)
 	}
 
-	renewReq := newdbplugin.UpdateUserRequest{
+	renewReq := dbplugin.UpdateUserRequest{
 		Username: createResp.Username,
-		Expiration: &newdbplugin.ChangeExpiration{
+		Expiration: &dbplugin.ChangeExpiration{
 			NewExpiration: time.Now().Add(time.Minute),
 		},
 	}
@@ -303,7 +303,7 @@ func TestOracle_RevokeUser(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			db := new()
 
-			initReq := newdbplugin.InitializeRequest{
+			initReq := dbplugin.InitializeRequest{
 				Config: map[string]interface{}{
 					"connection_url": connURL,
 				},
@@ -316,12 +316,12 @@ func TestOracle_RevokeUser(t *testing.T) {
 
 			password := "y8fva_sdVA3rasf"
 
-			createReq := newdbplugin.NewUserRequest{
-				UsernameConfig: newdbplugin.UsernameMetadata{
+			createReq := dbplugin.NewUserRequest{
+				UsernameConfig: dbplugin.UsernameMetadata{
 					DisplayName: "test",
 					RoleName:    "test",
 				},
-				Statements: newdbplugin.Statements{
+				Statements: dbplugin.Statements{
 					Commands: []string{`
 						CREATE USER {{name}} IDENTIFIED BY {{password}};
 						GRANT CONNECT TO {{name}};
@@ -345,9 +345,9 @@ func TestOracle_RevokeUser(t *testing.T) {
 				t.Fatalf("Could not connect with new credentials: %s", err)
 			}
 
-			deleteReq := newdbplugin.DeleteUserRequest{
+			deleteReq := dbplugin.DeleteUserRequest{
 				Username: createResp.Username,
-				Statements: newdbplugin.Statements{
+				Statements: dbplugin.Statements{
 					Commands: test.deleteStatements,
 				},
 			}
@@ -455,7 +455,7 @@ func TestUpdateUser_ChangePassword(t *testing.T) {
 	initialPassword := "myreallysecurepassword"
 
 	type testCase struct {
-		req newdbplugin.UpdateUserRequest
+		req dbplugin.UpdateUserRequest
 
 		expectedPassword string
 		expectErr        bool
@@ -463,9 +463,9 @@ func TestUpdateUser_ChangePassword(t *testing.T) {
 
 	tests := map[string]testCase{
 		"missing username": {
-			req: newdbplugin.UpdateUserRequest{
+			req: dbplugin.UpdateUserRequest{
 				Username: "",
-				Password: &newdbplugin.ChangePassword{
+				Password: &dbplugin.ChangePassword{
 					NewPassword: "newpassword",
 				},
 			},
@@ -473,21 +473,21 @@ func TestUpdateUser_ChangePassword(t *testing.T) {
 			expectErr:        true,
 		},
 		"missing password": {
-			req: newdbplugin.UpdateUserRequest{
+			req: dbplugin.UpdateUserRequest{
 				Username: username,
 			},
 			expectedPassword: initialPassword,
 			expectErr:        true,
 		},
 		"missing username and password": {
-			req:              newdbplugin.UpdateUserRequest{},
+			req:              dbplugin.UpdateUserRequest{},
 			expectedPassword: initialPassword,
 			expectErr:        true,
 		},
 		"happy path": {
-			req: newdbplugin.UpdateUserRequest{
+			req: dbplugin.UpdateUserRequest{
 				Username: username,
-				Password: &newdbplugin.ChangePassword{
+				Password: &dbplugin.ChangePassword{
 					NewPassword: "somenewpassword",
 				},
 			},
@@ -495,11 +495,11 @@ func TestUpdateUser_ChangePassword(t *testing.T) {
 			expectErr:        false,
 		},
 		"bad statements": {
-			req: newdbplugin.UpdateUserRequest{
+			req: dbplugin.UpdateUserRequest{
 				Username: username,
-				Password: &newdbplugin.ChangePassword{
+				Password: &dbplugin.ChangePassword{
 					NewPassword: "somenewpassword",
-					Statements: newdbplugin.Statements{
+					Statements: dbplugin.Statements{
 						Commands: []string{
 							"foo bar",
 						},
@@ -518,7 +518,7 @@ func TestUpdateUser_ChangePassword(t *testing.T) {
 
 			db := new()
 
-			initReq := newdbplugin.InitializeRequest{
+			initReq := dbplugin.InitializeRequest{
 				Config: map[string]interface{}{
 					"connection_url": connURL,
 				},

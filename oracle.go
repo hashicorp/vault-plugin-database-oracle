@@ -8,10 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/vault/api"
+	dbplugin "github.com/hashicorp/vault/sdk/database/dbplugin/v5"
 	"github.com/hashicorp/vault/sdk/database/helper/connutil"
 	"github.com/hashicorp/vault/sdk/database/helper/credsutil"
 	"github.com/hashicorp/vault/sdk/database/helper/dbutil"
-	"github.com/hashicorp/vault/sdk/database/newdbplugin"
 	"github.com/hashicorp/vault/sdk/helper/dbtxn"
 	"github.com/hashicorp/vault/sdk/helper/strutil"
 	_ "github.com/mattn/go-oci8"
@@ -31,7 +32,7 @@ DROP USER {{username}};
 	defaultRotateCredsSql = `ALTER USER {{username}} IDENTIFIED BY "{{password}}"`
 )
 
-var _ newdbplugin.Database = &Oracle{}
+var _ dbplugin.Database = &Oracle{}
 
 type Oracle struct {
 	*connutil.SQLConnectionProducer
@@ -40,7 +41,7 @@ type Oracle struct {
 func New() (interface{}, error) {
 	db := new()
 	// Wrap the plugin with middleware to sanitize errors
-	dbType := newdbplugin.NewDatabaseErrorSanitizerMiddleware(db, db.secretValues)
+	dbType := dbplugin.NewDatabaseErrorSanitizerMiddleware(db, db.secretValues)
 	return dbType, nil
 }
 
@@ -56,32 +57,32 @@ func new() *Oracle {
 }
 
 // Run instantiates an Oracle object, and runs the RPC server for the plugin
-func Run() error {
+func Run(apiTLSConfig *api.TLSConfig) error {
 	db, err := New()
 	if err != nil {
 		return err
 	}
 
-	newdbplugin.Serve(db.(newdbplugin.Database))
+	dbplugin.Serve(db.(dbplugin.Database), api.VaultPluginTLSProvider(apiTLSConfig))
 
 	return nil
 }
 
-func (o *Oracle) Initialize(ctx context.Context, req newdbplugin.InitializeRequest) (newdbplugin.InitializeResponse, error) {
+func (o *Oracle) Initialize(ctx context.Context, req dbplugin.InitializeRequest) (dbplugin.InitializeResponse, error) {
 	err := o.SQLConnectionProducer.Initialize(ctx, req.Config, req.VerifyConnection)
 	if err != nil {
-		return newdbplugin.InitializeResponse{}, err
+		return dbplugin.InitializeResponse{}, err
 	}
-	resp := newdbplugin.InitializeResponse{
+	resp := dbplugin.InitializeResponse{
 		Config: req.Config,
 	}
 	return resp, nil
 }
 
-func (o *Oracle) NewUser(ctx context.Context, req newdbplugin.NewUserRequest) (newdbplugin.NewUserResponse, error) {
+func (o *Oracle) NewUser(ctx context.Context, req dbplugin.NewUserRequest) (dbplugin.NewUserResponse, error) {
 	statements := removeEmpty(req.Statements.Commands)
 	if len(statements) == 0 {
-		return newdbplugin.NewUserResponse{}, dbutil.ErrEmptyCreationStatement
+		return dbplugin.NewUserResponse{}, dbutil.ErrEmptyCreationStatement
 	}
 
 	o.Lock()
@@ -89,21 +90,21 @@ func (o *Oracle) NewUser(ctx context.Context, req newdbplugin.NewUserRequest) (n
 
 	username, err := newUsername(req.UsernameConfig)
 	if err != nil {
-		return newdbplugin.NewUserResponse{}, fmt.Errorf("failed to generate username: %w", err)
+		return dbplugin.NewUserResponse{}, fmt.Errorf("failed to generate username: %w", err)
 	}
 	username = strings.ToUpper(username)
 
 	db, err := o.getConnection(ctx)
 	if err != nil {
-		return newdbplugin.NewUserResponse{}, fmt.Errorf("failed to get connection: %w", err)
+		return dbplugin.NewUserResponse{}, fmt.Errorf("failed to get connection: %w", err)
 	}
 
 	err = newUser(ctx, db, username, req.Password, req.Expiration, req.Statements.Commands)
 	if err != nil {
-		return newdbplugin.NewUserResponse{}, err
+		return dbplugin.NewUserResponse{}, err
 	}
 
-	resp := newdbplugin.NewUserResponse{
+	resp := dbplugin.NewUserResponse{
 		Username: username,
 	}
 	return resp, nil
@@ -121,7 +122,7 @@ func removeEmpty(strs []string) []string {
 	return newStrs
 }
 
-func newUsername(config newdbplugin.UsernameMetadata) (string, error) {
+func newUsername(config dbplugin.UsernameMetadata) (string, error) {
 	displayName := trunc(config.DisplayName, 8)
 	roleName := trunc(config.RoleName, 8)
 
@@ -213,20 +214,20 @@ func joinNonEmpty(sep string, vals ...string) string {
 	return builder.String()
 }
 
-func (o *Oracle) UpdateUser(ctx context.Context, req newdbplugin.UpdateUserRequest) (newdbplugin.UpdateUserResponse, error) {
+func (o *Oracle) UpdateUser(ctx context.Context, req dbplugin.UpdateUserRequest) (dbplugin.UpdateUserResponse, error) {
 	if req.Password == nil && req.Expiration == nil {
-		return newdbplugin.UpdateUserResponse{}, fmt.Errorf("no change requested")
+		return dbplugin.UpdateUserResponse{}, fmt.Errorf("no change requested")
 	}
 
 	if req.Password != nil {
 		err := o.changeUserPassword(ctx, req.Username, req.Password.NewPassword, req.Password.Statements.Commands)
 		if err != nil {
-			return newdbplugin.UpdateUserResponse{}, fmt.Errorf("failed to change password: %w", err)
+			return dbplugin.UpdateUserResponse{}, fmt.Errorf("failed to change password: %w", err)
 		}
-		return newdbplugin.UpdateUserResponse{}, nil
+		return dbplugin.UpdateUserResponse{}, nil
 	}
 	// Expiration change is a no-op
-	return newdbplugin.UpdateUserResponse{}, nil
+	return dbplugin.UpdateUserResponse{}, nil
 }
 
 func (o *Oracle) changeUserPassword(ctx context.Context, username string, newPassword string, rotateStatements []string) error {
@@ -280,25 +281,25 @@ func (o *Oracle) changeUserPassword(ctx context.Context, username string, newPas
 	return nil
 }
 
-func (o *Oracle) DeleteUser(ctx context.Context, req newdbplugin.DeleteUserRequest) (newdbplugin.DeleteUserResponse, error) {
+func (o *Oracle) DeleteUser(ctx context.Context, req dbplugin.DeleteUserRequest) (dbplugin.DeleteUserResponse, error) {
 	o.Lock()
 	defer o.Unlock()
 
 	db, err := o.getConnection(ctx)
 	if err != nil {
-		return newdbplugin.DeleteUserResponse{}, fmt.Errorf("failed to make connection: %w", err)
+		return dbplugin.DeleteUserResponse{}, fmt.Errorf("failed to make connection: %w", err)
 	}
 
 	tx, err := db.Begin()
 	if err != nil {
-		return newdbplugin.DeleteUserResponse{}, fmt.Errorf("failed to start transaction: %w", err)
+		return dbplugin.DeleteUserResponse{}, fmt.Errorf("failed to start transaction: %w", err)
 	}
 	// Effectively a no-op if the transaction commits successfully
 	defer tx.Rollback()
 
 	err = o.disconnectSession(db, req.Username)
 	if err != nil {
-		return newdbplugin.DeleteUserResponse{}, fmt.Errorf("failed to disconnect user %s: %w", req.Username, err)
+		return dbplugin.DeleteUserResponse{}, fmt.Errorf("failed to disconnect user %s: %w", req.Username, err)
 	}
 
 	revocationStatements := req.Statements.Commands
@@ -320,12 +321,12 @@ func (o *Oracle) DeleteUser(ctx context.Context, req newdbplugin.DeleteUserReque
 			}
 
 			if err := dbtxn.ExecuteTxQuery(ctx, tx, m, query); err != nil {
-				return newdbplugin.DeleteUserResponse{}, fmt.Errorf("failed to execute query: %w", err)
+				return dbplugin.DeleteUserResponse{}, fmt.Errorf("failed to execute query: %w", err)
 			}
 		}
 	}
 
-	return newdbplugin.DeleteUserResponse{}, nil
+	return dbplugin.DeleteUserResponse{}, nil
 }
 
 func (o *Oracle) Type() (string, error) {
