@@ -75,11 +75,19 @@ func (o *Oracle) NewUser(ctx context.Context, req dbplugin.NewUserRequest) (dbpl
 	o.Lock()
 	defer o.Unlock()
 
-	username, err := newUsername(req.UsernameConfig)
+	username, err := credsutil.GenerateUsername(
+		credsutil.DisplayName(req.UsernameConfig.DisplayName, 8),
+		credsutil.RoleName(req.UsernameConfig.RoleName, 8),
+		credsutil.MaxLength(30),
+		credsutil.Separator("_"),
+		credsutil.ToUpper(),
+	)
 	if err != nil {
 		return dbplugin.NewUserResponse{}, fmt.Errorf("failed to generate username: %w", err)
 	}
-	username = strings.ToUpper(username)
+	// Dashes and periods could be in the display or role names but they generally aren't liked by Oracle
+	username = strings.Replace(username, "-", "_", -1)
+	username = strings.Replace(username, ".", "_", -1)
 
 	db, err := o.getConnection(ctx)
 	if err != nil {
@@ -107,39 +115,6 @@ func removeEmpty(strs []string) []string {
 		newStrs = append(newStrs, str)
 	}
 	return newStrs
-}
-
-func newUsername(config dbplugin.UsernameMetadata) (string, error) {
-	displayName := trunc(config.DisplayName, 8)
-	roleName := trunc(config.RoleName, 8)
-
-	userUUID, err := credsutil.RandomAlphaNumeric(20, false)
-	if err != nil {
-		return "", err
-	}
-
-	now := fmt.Sprint(time.Now().Unix())
-
-	parts := []string{
-		"v",
-		displayName,
-		roleName,
-		userUUID,
-		now,
-	}
-	username := joinNonEmpty("_", parts...)
-	username = trunc(username, 30)
-	username = strings.Replace(username, "-", "_", -1)
-	username = strings.Replace(username, ".", "_", -1)
-
-	return username, nil
-}
-
-func trunc(str string, l int) string {
-	if len(str) < l {
-		return str
-	}
-	return str[:l]
 }
 
 func newUser(ctx context.Context, db *sql.DB, username, password string, expiration time.Time, commands []string) error {
