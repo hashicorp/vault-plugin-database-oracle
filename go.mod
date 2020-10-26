@@ -7,7 +7,7 @@ require (
 	github.com/cenkalti/backoff v2.1.1+incompatible // indirect
 	github.com/gotestyourself/gotestyourself v2.2.0+incompatible // indirect
 	github.com/hashicorp/vault/api v1.0.5-0.20200519221902-385fac77e20f
-	github.com/hashicorp/vault/sdk v0.1.14-0.20201015192012-a69ee0f65a28
+	github.com/hashicorp/vault/sdk v0.1.14-0.20201022232017-233a19e8f8ab
 	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d // indirect
 	github.com/mattn/go-oci8 v0.0.0-20190410054007-e00f23025626
 	github.com/ory/dockertest v3.3.4+incompatible // indirect
