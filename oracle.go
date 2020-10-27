@@ -18,9 +18,7 @@ import (
 )
 
 const (
-	oracleTypeName             = "oci8"
-	oracleUsernameLength       = 30
-	oracleDisplayNameMaxLength = 8
+	oracleTypeName = "oci8"
 
 	revocationSQL = `
 REVOKE CONNECT FROM {{username}};
@@ -31,7 +29,7 @@ DROP USER {{username}};
 	defaultRotateCredsSql = `ALTER USER {{username}} IDENTIFIED BY "{{password}}"`
 )
 
-var _ dbplugin.Database = &Oracle{}
+var _ dbplugin.Database = (*Oracle)(nil)
 
 type Oracle struct {
 	*connutil.SQLConnectionProducer
@@ -151,29 +149,6 @@ func newUser(ctx context.Context, db *sql.DB, username, password string, expirat
 		return err
 	}
 	return nil
-}
-
-func joinNonEmpty(sep string, vals ...string) string {
-	if sep == "" {
-		return strings.Join(vals, sep)
-	}
-	switch len(vals) {
-	case 0:
-		return ""
-	case 1:
-		return vals[0]
-	}
-	builder := &strings.Builder{}
-	for _, val := range vals {
-		if val == "" {
-			continue
-		}
-		if builder.Len() > 0 {
-			builder.WriteString(sep)
-		}
-		builder.WriteString(val)
-	}
-	return builder.String()
 }
 
 func (o *Oracle) UpdateUser(ctx context.Context, req dbplugin.UpdateUserRequest) (dbplugin.UpdateUserResponse, error) {

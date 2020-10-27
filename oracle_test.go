@@ -11,6 +11,7 @@ import (
 	"time"
 
 	dbplugin "github.com/hashicorp/vault/sdk/database/dbplugin/v5"
+	dbtesting "github.com/hashicorp/vault/sdk/database/dbplugin/v5/testing"
 	"github.com/tgulacsi/go/orahlp"
 	dockertest "gopkg.in/ory-am/dockertest.v3"
 )
@@ -88,9 +89,10 @@ func prepareOracleTestContainer(t *testing.T) (connString string, cleanup func()
 
 func TestOracle_Initialize(t *testing.T) {
 	connURL, cleanup := prepareOracleTestContainer(t)
-	defer cleanup()
+	t.Cleanup(cleanup)
 
 	db := new()
+	defer dbtesting.AssertClose(t, db)
 
 	expectedConfig := map[string]interface{}{
 		"connection_url": connURL,
@@ -101,10 +103,7 @@ func TestOracle_Initialize(t *testing.T) {
 		},
 		VerifyConnection: true,
 	}
-	resp, err := db.Initialize(context.Background(), req)
-	if err != nil {
-		t.Fatalf("err: %s", err)
-	}
+	resp := dbtesting.AssertInitialize(t, db, req)
 	if !reflect.DeepEqual(resp.Config, expectedConfig) {
 		t.Fatalf("Actual: %#v\nExpected: %#v", resp.Config, expectedConfig)
 	}
@@ -112,11 +111,6 @@ func TestOracle_Initialize(t *testing.T) {
 	connProducer := db.SQLConnectionProducer
 	if !connProducer.Initialized {
 		t.Fatal("Database should be initialized")
-	}
-
-	err = db.Close()
-	if err != nil {
-		t.Fatalf("err: %s", err)
 	}
 }
 
@@ -152,19 +146,18 @@ func TestOracle_NewUser(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			connURL, cleanup := prepareOracleTestContainer(t)
-			defer cleanup()
+			t.Cleanup(cleanup)
 
 			db := new()
+			defer dbtesting.AssertClose(t, db)
+
 			initReq := dbplugin.InitializeRequest{
 				Config: map[string]interface{}{
 					"connection_url": connURL,
 				},
 				VerifyConnection: true,
 			}
-			_, err := db.Initialize(context.Background(), initReq)
-			if err != nil {
-				t.Fatalf("err: %s", err)
-			}
+			dbtesting.AssertInitialize(t, db, initReq)
 
 			password := "y8fva_sdVA3rasf"
 
@@ -207,9 +200,10 @@ func TestOracle_NewUser(t *testing.T) {
 
 func TestOracle_RenewUser(t *testing.T) {
 	connURL, cleanup := prepareOracleTestContainer(t)
-	defer cleanup()
+	t.Cleanup(cleanup)
 
 	db := new()
+	defer dbtesting.AssertClose(t, db)
 
 	initReq := dbplugin.InitializeRequest{
 		Config: map[string]interface{}{
@@ -217,10 +211,7 @@ func TestOracle_RenewUser(t *testing.T) {
 		},
 		VerifyConnection: true,
 	}
-	_, err := db.Initialize(context.Background(), initReq)
-	if err != nil {
-		t.Fatalf("err: %s", err)
-	}
+	dbtesting.AssertInitialize(t, db, initReq)
 
 	password := "y8fva_sdVA3rasf"
 
@@ -240,18 +231,9 @@ func TestOracle_RenewUser(t *testing.T) {
 		Expiration: time.Now().Add(2 * time.Second),
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), getRequestTimeout(t))
-	defer cancel()
+	createResp := dbtesting.AssertNewUser(t, db, createReq)
 
-	createResp, err := db.NewUser(ctx, createReq)
-
-	if err != nil {
-		t.Fatalf("err: %s", err)
-	}
-
-	if err = testCredentialsExist(connURL, createResp.Username, password); err != nil {
-		t.Fatalf("Could not connect with new credentials: %s", err)
-	}
+	assertCredentialsExist(t, connURL, createResp.Username, password)
 
 	renewReq := dbplugin.UpdateUserRequest{
 		Username: createResp.Username,
@@ -260,22 +242,17 @@ func TestOracle_RenewUser(t *testing.T) {
 		},
 	}
 
-	_, err = db.UpdateUser(ctx, renewReq)
-	if err != nil {
-		t.Fatalf("err: %s", err)
-	}
+	dbtesting.AssertUpdateUser(t, db, renewReq)
 
 	// Sleep longer than the initial expiration time
 	time.Sleep(2 * time.Second)
 
-	if err = testCredentialsExist(connURL, createResp.Username, password); err != nil {
-		t.Fatalf("Could not connect with new credentials: %s", err)
-	}
+	assertCredentialsExist(t, connURL, createResp.Username, password)
 }
 
 func TestOracle_RevokeUser(t *testing.T) {
 	connURL, cleanup := prepareOracleTestContainer(t)
-	defer cleanup()
+	t.Cleanup(cleanup)
 
 	type testCase struct {
 		deleteStatements []string
@@ -302,6 +279,7 @@ func TestOracle_RevokeUser(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			db := new()
+			defer dbtesting.AssertClose(t, db)
 
 			initReq := dbplugin.InitializeRequest{
 				Config: map[string]interface{}{
@@ -309,10 +287,7 @@ func TestOracle_RevokeUser(t *testing.T) {
 				},
 				VerifyConnection: true,
 			}
-			_, err := db.Initialize(context.Background(), initReq)
-			if err != nil {
-				t.Fatalf("err: %s", err)
-			}
+			dbtesting.AssertInitialize(t, db, initReq)
 
 			password := "y8fva_sdVA3rasf"
 
@@ -332,18 +307,9 @@ func TestOracle_RevokeUser(t *testing.T) {
 				Expiration: time.Now().Add(2 * time.Second),
 			}
 
-			ctx, cancel := context.WithTimeout(context.Background(), getRequestTimeout(t))
-			defer cancel()
+			createResp := dbtesting.AssertNewUser(t, db, createReq)
 
-			createResp, err := db.NewUser(ctx, createReq)
-
-			if err != nil {
-				t.Fatalf("err: %s", err)
-			}
-
-			if err = testCredentialsExist(connURL, createResp.Username, password); err != nil {
-				t.Fatalf("Could not connect with new credentials: %s", err)
-			}
+			assertCredentialsExist(t, connURL, createResp.Username, password)
 
 			deleteReq := dbplugin.DeleteUserRequest{
 				Username: createResp.Username,
@@ -351,14 +317,8 @@ func TestOracle_RevokeUser(t *testing.T) {
 					Commands: test.deleteStatements,
 				},
 			}
-			_, err = db.DeleteUser(context.Background(), deleteReq)
-			if err != nil {
-				t.Fatalf("err: %s", err)
-			}
-
-			if err := testCredentialsExist(connURL, createResp.Username, password); err == nil {
-				t.Fatal("Credentials were not revoked")
-			}
+			dbtesting.AssertDeleteUser(t, db, deleteReq)
+			assertCredentialsDoNotExist(t, connURL, createResp.Username, password)
 		})
 	}
 }
@@ -514,7 +474,7 @@ func TestUpdateUser_ChangePassword(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			connURL, cleanup := prepareOracleTestContainer(t)
-			defer cleanup()
+			t.Cleanup(cleanup)
 
 			db := new()
 
@@ -524,12 +484,11 @@ func TestUpdateUser_ChangePassword(t *testing.T) {
 				},
 				VerifyConnection: true,
 			}
-			_, err := db.Initialize(context.Background(), initReq)
-			if err != nil {
-				t.Fatalf("err: %s", err)
-			}
+			dbtesting.AssertInitialize(t, db, initReq)
 
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			// Manually create a user since we need to know the username ahead of time when we
+			// declare the test cases above
+			ctx, cancel := context.WithTimeout(context.Background(), getRequestTimeout(t))
 			defer cancel()
 
 			sqlDB, err := db.getConnection(ctx)
@@ -549,7 +508,7 @@ func TestUpdateUser_ChangePassword(t *testing.T) {
 
 			assertCredentialsExist(t, connURL, username, initialPassword)
 
-			ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+			ctx, cancel = context.WithTimeout(context.Background(), getRequestTimeout(t))
 			defer cancel()
 
 			_, err = db.UpdateUser(ctx, test.req)
@@ -579,6 +538,7 @@ func testCredentialsExist(connString, username, password string) error {
 }
 
 func assertCredentialsExist(t *testing.T, connString, username, password string) {
+	t.Helper()
 	err := testCredentialsExist(connString, username, password)
 	if err != nil {
 		t.Fatalf("failed to login: %s", err)
@@ -586,6 +546,7 @@ func assertCredentialsExist(t *testing.T, connString, username, password string)
 }
 
 func assertCredentialsDoNotExist(t *testing.T, connString, username, password string) {
+	t.Helper()
 	err := testCredentialsExist(connString, username, password)
 	if err == nil {
 		t.Fatalf("logged in when it shouldn't have been able to")

@@ -68,6 +68,7 @@ github.com/hashicorp/vault/api
 github.com/hashicorp/vault/sdk/database/dbplugin
 github.com/hashicorp/vault/sdk/database/dbplugin/v5
 github.com/hashicorp/vault/sdk/database/dbplugin/v5/proto
+github.com/hashicorp/vault/sdk/database/dbplugin/v5/testing
 github.com/hashicorp/vault/sdk/database/helper/connutil
 github.com/hashicorp/vault/sdk/database/helper/credsutil
 github.com/hashicorp/vault/sdk/database/helper/dbutil
