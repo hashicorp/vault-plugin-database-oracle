@@ -8,21 +8,17 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/mattn/go-oci8"
-
-	"github.com/hashicorp/vault/api"
-	"github.com/hashicorp/vault/sdk/database/dbplugin"
+	dbplugin "github.com/hashicorp/vault/sdk/database/dbplugin/v5"
 	"github.com/hashicorp/vault/sdk/database/helper/connutil"
 	"github.com/hashicorp/vault/sdk/database/helper/credsutil"
 	"github.com/hashicorp/vault/sdk/database/helper/dbutil"
 	"github.com/hashicorp/vault/sdk/helper/dbtxn"
 	"github.com/hashicorp/vault/sdk/helper/strutil"
+	_ "github.com/mattn/go-oci8"
 )
 
 const (
-	oracleTypeName             = "oci8"
-	oracleUsernameLength       = 30
-	oracleDisplayNameMaxLength = 8
+	oracleTypeName = "oci8"
 
 	revocationSQL = `
 REVOKE CONNECT FROM {{username}};
@@ -33,16 +29,16 @@ DROP USER {{username}};
 	defaultRotateCredsSql = `ALTER USER {{username}} IDENTIFIED BY "{{password}}"`
 )
 
+var _ dbplugin.Database = (*Oracle)(nil)
+
 type Oracle struct {
 	*connutil.SQLConnectionProducer
-	credsutil.CredentialsProducer
 }
 
-// New implements builtinplugins.BuiltinFactory
 func New() (interface{}, error) {
 	db := new()
 	// Wrap the plugin with middleware to sanitize errors
-	dbType := dbplugin.NewDatabaseErrorSanitizerMiddleware(db, db.SecretValues)
+	dbType := dbplugin.NewDatabaseErrorSanitizerMiddleware(db, db.secretValues)
 	return dbType, nil
 }
 
@@ -50,83 +46,84 @@ func new() *Oracle {
 	connProducer := &connutil.SQLConnectionProducer{}
 	connProducer.Type = oracleTypeName
 
-	credsProducer := &oracleCredentialsProducer{
-		credsutil.SQLCredentialsProducer{
-			DisplayNameLen: oracleDisplayNameMaxLength,
-			RoleNameLen:    oracleDisplayNameMaxLength,
-			UsernameLen:    oracleUsernameLength,
-			Separator:      "_",
-		},
-	}
-
 	dbType := &Oracle{
 		SQLConnectionProducer: connProducer,
-		CredentialsProducer:   credsProducer,
 	}
 
 	return dbType
 }
 
-// Run instantiates an Oracle object, and runs the RPC server for the plugin
-func Run(apiTLSConfig *api.TLSConfig) error {
-	dbType, err := New()
+func (o *Oracle) Initialize(ctx context.Context, req dbplugin.InitializeRequest) (dbplugin.InitializeResponse, error) {
+	err := o.SQLConnectionProducer.Initialize(ctx, req.Config, req.VerifyConnection)
 	if err != nil {
-		return err
+		return dbplugin.InitializeResponse{}, err
 	}
-
-	dbplugin.Serve(dbType.(dbplugin.Database), api.VaultPluginTLSProvider(apiTLSConfig))
-
-	return nil
+	resp := dbplugin.InitializeResponse{
+		Config: req.Config,
+	}
+	return resp, nil
 }
 
-func (o *Oracle) Type() (string, error) {
-	return oracleTypeName, nil
-}
-
-func (o *Oracle) CreateUser(ctx context.Context, statements dbplugin.Statements, usernameConfig dbplugin.UsernameConfig, expiration time.Time) (username string, password string, err error) {
-	statements = dbutil.StatementCompatibilityHelper(statements)
-
-	if len(statements.Creation) == 0 {
-		return "", "", dbutil.ErrEmptyCreationStatement
+func (o *Oracle) NewUser(ctx context.Context, req dbplugin.NewUserRequest) (dbplugin.NewUserResponse, error) {
+	statements := removeEmpty(req.Statements.Commands)
+	if len(statements) == 0 {
+		return dbplugin.NewUserResponse{}, dbutil.ErrEmptyCreationStatement
 	}
 
-	// Grab the lock
 	o.Lock()
 	defer o.Unlock()
 
-	username, err = o.GenerateUsername(usernameConfig)
+	username, err := credsutil.GenerateUsername(
+		credsutil.DisplayName(req.UsernameConfig.DisplayName, 8),
+		credsutil.RoleName(req.UsernameConfig.RoleName, 8),
+		credsutil.MaxLength(30),
+		credsutil.Separator("_"),
+		credsutil.ToUpper(),
+	)
 	if err != nil {
-		return "", "", err
+		return dbplugin.NewUserResponse{}, fmt.Errorf("failed to generate username: %w", err)
 	}
-	username = strings.ToUpper(username)
+	// Dashes and periods could be in the display or role names but they generally aren't liked by Oracle
+	username = strings.Replace(username, "-", "_", -1)
+	username = strings.Replace(username, ".", "_", -1)
 
-	password, err = o.GeneratePassword()
-	if err != nil {
-		return "", "", err
-	}
-
-	expirationStr, err := o.GenerateExpiration(expiration)
-	if err != nil {
-		return "", "", err
-	}
-
-	// Get the connection
 	db, err := o.getConnection(ctx)
 	if err != nil {
-		return "", "", err
+		return dbplugin.NewUserResponse{}, fmt.Errorf("failed to get connection: %w", err)
 	}
 
-	// Start a transaction
+	err = newUser(ctx, db, username, req.Password, req.Expiration, req.Statements.Commands)
+	if err != nil {
+		return dbplugin.NewUserResponse{}, err
+	}
+
+	resp := dbplugin.NewUserResponse{
+		Username: username,
+	}
+	return resp, nil
+}
+
+func removeEmpty(strs []string) []string {
+	newStrs := []string{}
+	for _, str := range strs {
+		str = strings.TrimSpace(str)
+		if str == "" {
+			continue
+		}
+		newStrs = append(newStrs, str)
+	}
+	return newStrs
+}
+
+func newUser(ctx context.Context, db *sql.DB, username, password string, expiration time.Time, commands []string) error {
 	tx, err := db.Begin()
 	if err != nil {
-		return "", "", err
-
+		return fmt.Errorf("failed to start a transaction: %w", err)
 	}
 	// Effectively a no-op if the transaction commits successfully
 	defer tx.Rollback()
 
-	// Execute each query
-	for _, stmt := range statements.Creation {
+	for _, stmt := range commands {
 		for _, query := range strutil.ParseArbitraryStringSlice(stmt, ";") {
 			query = strings.TrimSpace(query)
 			if len(query) == 0 {
@@ -137,176 +134,70 @@ func (o *Oracle) CreateUser(ctx context.Context, statements dbplugin.Statements,
 				"username":   username,
 				"name":       username, // backwards compatibility
 				"password":   password,
-				"expiration": expirationStr,
+				"expiration": expiration.Format("2006-01-02 15:04:05-0700"),
 			}
 
-			if err := dbtxn.ExecuteTxQuery(ctx, tx, m, query); err != nil {
-				return "", "", err
-			}
-		}
-	}
-
-	// Commit the transaction
-	if err := tx.Commit(); err != nil {
-		return "", "", err
-
-	}
-
-	// Return the secret
-	return username, password, nil
-}
-
-func (o *Oracle) RenewUser(ctx context.Context, statements dbplugin.Statements, username string, expiration time.Time) error {
-	return nil // NOOP
-}
-
-func (o *Oracle) RevokeUser(ctx context.Context, statements dbplugin.Statements, username string) error {
-	// Grab the lock
-	o.Lock()
-	defer o.Unlock()
-
-	// Get the connection
-	db, err := o.getConnection(ctx)
-	if err != nil {
-		return err
-	}
-
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-	// Effectively a no-op if the transaction commits successfully
-	defer tx.Rollback()
-
-	if err := o.disconnectSession(db, username); err != nil {
-		return err
-	}
-
-	statements = dbutil.StatementCompatibilityHelper(statements)
-	revocationStatements := statements.Revocation
-	if len(revocationStatements) == 0 {
-		revocationStatements = []string{revocationSQL}
-	}
-
-	// We can't use a transaction here, because Oracle treats DROP USER as a DDL statement, which commits immediately.
-	// Execute each query
-	for _, stmt := range revocationStatements {
-		for _, query := range strutil.ParseArbitraryStringSlice(stmt, ";") {
-			query = strings.TrimSpace(query)
-			if len(query) == 0 {
-				continue
-			}
-
-			m := map[string]string{
-				"username": username,
-				"name":     username, // backwards compatibility
-			}
-
-			if err := dbtxn.ExecuteTxQuery(ctx, tx, m, query); err != nil {
-				return err
+			err = dbtxn.ExecuteTxQuery(ctx, tx, m, query)
+			if err != nil {
+				return fmt.Errorf("failed to execute query: %w", err)
 			}
 		}
 	}
 
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
-func (o *Oracle) RotateRootCredentials(ctx context.Context, statements []string) (map[string]interface{}, error) {
-	o.Lock()
-	defer o.Unlock()
-
-	if len(o.Username) == 0 || len(o.Password) == 0 {
-		return nil, errors.New("username and password are required to rotate")
+func (o *Oracle) UpdateUser(ctx context.Context, req dbplugin.UpdateUserRequest) (dbplugin.UpdateUserResponse, error) {
+	if req.Password == nil && req.Expiration == nil {
+		return dbplugin.UpdateUserResponse{}, fmt.Errorf("no change requested")
 	}
 
-	rotateStatements := statements
-	if len(rotateStatements) == 0 {
-		rotateStatements = []string{defaultRotateCredsSql}
-	}
-
-	db, err := o.getConnection(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	tx, err := db.Begin()
-	if err != nil {
-		return nil, err
-	}
-	// Effectively a no-op if the transaction commits successfully
-	defer tx.Rollback()
-
-	password, err := o.GeneratePassword()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, stmt := range rotateStatements {
-		for _, query := range strutil.ParseArbitraryStringSlice(stmt, ";") {
-			query = strings.TrimSpace(query)
-			if len(query) == 0 {
-				continue
-			}
-
-			m := map[string]string{
-				"username": o.Username,
-				"name":     o.Username, // backwards compatibility
-				"password": password,
-			}
-
-			if err := dbtxn.ExecuteTxQuery(ctx, tx, m, query); err != nil {
-				return nil, err
-			}
+	if req.Password != nil {
+		err := o.changeUserPassword(ctx, req.Username, req.Password.NewPassword, req.Password.Statements.Commands)
+		if err != nil {
+			return dbplugin.UpdateUserResponse{}, fmt.Errorf("failed to change password: %w", err)
 		}
+		return dbplugin.UpdateUserResponse{}, nil
 	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
-
-	if err := db.Close(); err != nil {
-		return nil, err
-	}
-
-	o.RawConfig["password"] = password
-	return o.RawConfig, nil
+	// Expiration change is a no-op
+	return dbplugin.UpdateUserResponse{}, nil
 }
 
-func (o *Oracle) SetCredentials(ctx context.Context, statements dbplugin.Statements, staticUser dbplugin.StaticUserConfig) (username, password string, err error) {
-	rotateStatements := statements.Rotation
+func (o *Oracle) changeUserPassword(ctx context.Context, username string, newPassword string, rotateStatements []string) error {
 	if len(rotateStatements) == 0 {
 		rotateStatements = []string{defaultRotateCredsSql}
 	}
 
-	username = staticUser.Username
-	password = staticUser.Password
-	if username == "" || password == "" {
-		return "", "", errors.New("must provide both username and password")
+	if username == "" || newPassword == "" {
+		return errors.New("must provide both username and password")
 	}
 
 	variables := map[string]string{
 		"username": username,
 		"name":     username, // backwards compatibility
-		"password": password,
+		"password": newPassword,
 	}
 
 	queries := splitQueries(rotateStatements)
 	if len(queries) == 0 { // Extra check to protect against future changes
-		return "", "", errors.New("no rotation queries found")
+		return errors.New("no rotation queries found")
 	}
 
-	// Lock the SQL connection
 	o.Lock()
 	defer o.Unlock()
 
 	db, err := o.getConnection(ctx)
 	if err != nil {
-		return "", "", fmt.Errorf("unable to get database connection: %w", err)
+		return fmt.Errorf("unable to get database connection: %w", err)
 	}
 
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return "", "", fmt.Errorf("unable to create database transaction: %w", err)
+		return fmt.Errorf("unable to create database transaction: %w", err)
 	}
 	// Effectively a no-op if the transaction commits successfully
 	defer tx.Rollback()
@@ -315,16 +206,74 @@ func (o *Oracle) SetCredentials(ctx context.Context, statements dbplugin.Stateme
 		parsedQuery := dbutil.QueryHelper(rawQuery, variables)
 		err := dbtxn.ExecuteTxQuery(ctx, tx, nil, parsedQuery)
 		if err != nil {
-			return "", "", fmt.Errorf("unable to execute rotation query [%s]: %w", rawQuery, err)
+			return fmt.Errorf("unable to execute query [%s]: %w", rawQuery, err)
 		}
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		return "", "", fmt.Errorf("unable to commit rotation queries: %w", err)
+		return fmt.Errorf("unable to commit queries: %w", err)
 	}
 
-	return username, password, nil
+	return nil
+}
+
+func (o *Oracle) DeleteUser(ctx context.Context, req dbplugin.DeleteUserRequest) (dbplugin.DeleteUserResponse, error) {
+	o.Lock()
+	defer o.Unlock()
+
+	db, err := o.getConnection(ctx)
+	if err != nil {
+		return dbplugin.DeleteUserResponse{}, fmt.Errorf("failed to make connection: %w", err)
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return dbplugin.DeleteUserResponse{}, fmt.Errorf("failed to start transaction: %w", err)
+	}
+	// Effectively a no-op if the transaction commits successfully
+	defer tx.Rollback()
+
+	err = o.disconnectSession(db, req.Username)
+	if err != nil {
+		return dbplugin.DeleteUserResponse{}, fmt.Errorf("failed to disconnect user %s: %w", req.Username, err)
+	}
+
+	revocationStatements := req.Statements.Commands
+	if len(revocationStatements) == 0 {
+		revocationStatements = []string{revocationSQL}
+	}
+
+	// We can't use a transaction here, because Oracle treats DROP USER as a DDL statement, which commits immediately.
+	for _, stmt := range revocationStatements {
+		for _, query := range strutil.ParseArbitraryStringSlice(stmt, ";") {
+			query = strings.TrimSpace(query)
+			if len(query) == 0 {
+				continue
+			}
+
+			m := map[string]string{
+				"username": req.Username,
+				"name":     req.Username, // backwards compatibility
+			}
+
+			if err := dbtxn.ExecuteTxQuery(ctx, tx, m, query); err != nil {
+				return dbplugin.DeleteUserResponse{}, fmt.Errorf("failed to execute query: %w", err)
+			}
+		}
+	}
+
+	return dbplugin.DeleteUserResponse{}, nil
+}
+
+func (o *Oracle) Type() (string, error) {
+	return oracleTypeName, nil
+}
+
+func (o *Oracle) secretValues() map[string]string {
+	return map[string]string{
+		o.Password: "[password]",
+	}
 }
 
 func splitQueries(rawQueries []string) (queries []string) {
@@ -345,7 +294,7 @@ func (o *Oracle) disconnectSession(db *sql.DB, username string) error {
 	disconnectVars := map[string]string{
 		"username": username,
 	}
-	disconnectQuery := dbutil.QueryHelper(`SELECT sid, serial#, username FROM v$session WHERE username = UPPER('{{username}}')`, disconnectVars)
+	disconnectQuery := dbutil.QueryHelper(`SELECT sid, serial#, username FROM gv$session WHERE username = UPPER('{{username}}')`, disconnectVars)
 	disconnectStmt, err := db.Prepare(disconnectQuery)
 	if err != nil {
 		return err
