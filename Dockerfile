@@ -1,4 +1,4 @@
-FROM oraclelinux:7
+FROM docker.mirror.hashicorp.services/oraclelinux:7
 
 RUN yum-config-manager --add-repo http://yum.oracle.com/repo/OracleLinux/OL7/oracle/instantclient/x86_64
 
