@@ -28,7 +28,7 @@ DROP USER {{username}};
 
 	defaultRotateCredsSql = `ALTER USER {{username}} IDENTIFIED BY "{{password}}"`
 
-	defaultUsernameTemplate = `{{ printf "V_%s_%s_%s_%s" (.DisplayName | uppercase | truncate 8) (.RoleName | uppercase | truncate 8) (random 20 | uppercase) (unix_time) | truncate 30 }}`
+	defaultUsernameTemplate = `{{ printf "V_%s_%s_%s_%s" (.DisplayName | truncate 8) (.RoleName | truncate 8) (random 20) (unix_time) | truncate 30 | uppercase | replace "-" "_" | replace "." "_" }}`
 )
 
 var _ dbplugin.Database = (*Oracle)(nil)
@@ -99,9 +99,6 @@ func (o *Oracle) NewUser(ctx context.Context, req dbplugin.NewUserRequest) (dbpl
 	if err != nil {
 		return dbplugin.NewUserResponse{}, fmt.Errorf("failed to generate username: %w", err)
 	}
-	// Dashes and periods could be in the display or role names but they generally aren't liked by Oracle
-	username = strings.Replace(username, "-", "_", -1)
-	username = strings.Replace(username, ".", "_", -1)
 
 	db, err := o.getConnection(ctx)
 	if err != nil {

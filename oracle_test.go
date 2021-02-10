@@ -116,6 +116,8 @@ func TestOracle_Initialize(t *testing.T) {
 
 func TestOracle_NewUser(t *testing.T) {
 	type testCase struct {
+		displayName           string
+		roleName              string
 		creationStmts         []string
 		usernameTemplate      string
 		expectErr             bool
@@ -124,6 +126,8 @@ func TestOracle_NewUser(t *testing.T) {
 
 	tests := map[string]testCase{
 		"name creation": {
+			displayName: "token",
+			roleName:    "myrolenamewithextracharacters",
 			creationStmts: []string{`
 				CREATE USER {{name}} IDENTIFIED BY "{{password}}";
 				GRANT CONNECT TO {{name}};
@@ -133,6 +137,8 @@ func TestOracle_NewUser(t *testing.T) {
 			expectedUsernameRegex: `^V_TOKEN_MYROLENA_[A-Z0-9]{13}$`,
 		},
 		"username creation": {
+			displayName: "token",
+			roleName:    "myrolenamewithextracharacters",
 			creationStmts: []string{`
 				CREATE USER {{username}} IDENTIFIED BY "{{password}}";
 				GRANT CONNECT TO {{username}};
@@ -141,7 +147,20 @@ func TestOracle_NewUser(t *testing.T) {
 			expectErr:             false,
 			expectedUsernameRegex: `^V_TOKEN_MYROLENA_[A-Z0-9]{13}$`,
 		},
+		"default_username_template": {
+			displayName: "token-withadisplayname",
+			roleName:    "areallylongrolenamewithmanycharacters",
+			creationStmts: []string{`
+				CREATE USER {{username}} IDENTIFIED BY "{{password}}";
+				GRANT CONNECT TO {{username}};
+				GRANT CREATE SESSION TO {{username}};`,
+			},
+			expectErr:             false,
+			expectedUsernameRegex: `^V_TOKEN_WI_AREALLYL_[A-Z0-9]{10}$`,
+		},
 		"custom username_template": {
+			displayName: "token",
+			roleName:    "myrolenamewithextracharacters",
 			creationStmts: []string{`
 				CREATE USER {{username}} IDENTIFIED BY "{{password}}";
 				GRANT CONNECT TO {{username}};
@@ -152,6 +171,8 @@ func TestOracle_NewUser(t *testing.T) {
 			expectedUsernameRegex: `^[A-Z0-9]{8}_MYROLENAME_3C469E9D6C$`,
 		},
 		"empty creation": {
+			displayName:           "token",
+			roleName:              "myrolenamewithextracharacters",
 			creationStmts:         []string{},
 			expectErr:             true,
 			expectedUsernameRegex: `^$`,
@@ -179,8 +200,8 @@ func TestOracle_NewUser(t *testing.T) {
 
 			createReq := dbplugin.NewUserRequest{
 				UsernameConfig: dbplugin.UsernameMetadata{
-					DisplayName: "token",
-					RoleName:    "myrolenamewithextracharacters",
+					DisplayName: test.displayName,
+					RoleName:    test.roleName,
 				},
 				Statements: dbplugin.Statements{
 					Commands: test.creationStmts,
