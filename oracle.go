@@ -10,10 +10,10 @@ import (
 
 	dbplugin "github.com/hashicorp/vault/sdk/database/dbplugin/v5"
 	"github.com/hashicorp/vault/sdk/database/helper/connutil"
-	"github.com/hashicorp/vault/sdk/database/helper/credsutil"
 	"github.com/hashicorp/vault/sdk/database/helper/dbutil"
 	"github.com/hashicorp/vault/sdk/helper/dbtxn"
 	"github.com/hashicorp/vault/sdk/helper/strutil"
+	"github.com/hashicorp/vault/sdk/helper/template"
 	_ "github.com/mattn/go-oci8"
 )
 
@@ -27,12 +27,15 @@ DROP USER {{username}};
 `
 
 	defaultRotateCredsSql = `ALTER USER {{username}} IDENTIFIED BY "{{password}}"`
+
+	defaultUsernameTemplate = `{{ printf "V_%s_%s_%s_%s" (.DisplayName | truncate 8) (.RoleName | truncate 8) (random 20) (unix_time) | truncate 30 | uppercase | replace "-" "_" | replace "." "_" }}`
 )
 
 var _ dbplugin.Database = (*Oracle)(nil)
 
 type Oracle struct {
 	*connutil.SQLConnectionProducer
+	usernameProducer template.StringTemplate
 }
 
 func New() (interface{}, error) {
@@ -54,7 +57,26 @@ func new() *Oracle {
 }
 
 func (o *Oracle) Initialize(ctx context.Context, req dbplugin.InitializeRequest) (dbplugin.InitializeResponse, error) {
-	err := o.SQLConnectionProducer.Initialize(ctx, req.Config, req.VerifyConnection)
+	usernameTemplate, err := strutil.GetString(req.Config, "username_template")
+	if err != nil {
+		return dbplugin.InitializeResponse{}, fmt.Errorf("failed to retrieve username_template: %w", err)
+	}
+	if usernameTemplate == "" {
+		usernameTemplate = defaultUsernameTemplate
+	}
+
+	up, err := template.NewTemplate(template.Template(usernameTemplate))
+	if err != nil {
+		return dbplugin.InitializeResponse{}, fmt.Errorf("unable to initialize username template: %w", err)
+	}
+	o.usernameProducer = up
+
+	_, err = o.usernameProducer.Generate(dbplugin.UsernameMetadata{})
+	if err != nil {
+		return dbplugin.InitializeResponse{}, fmt.Errorf("invalid username template: %w", err)
+	}
+
+	err = o.SQLConnectionProducer.Initialize(ctx, req.Config, req.VerifyConnection)
 	if err != nil {
 		return dbplugin.InitializeResponse{}, err
 	}
@@ -73,19 +95,10 @@ func (o *Oracle) NewUser(ctx context.Context, req dbplugin.NewUserRequest) (dbpl
 	o.Lock()
 	defer o.Unlock()
 
-	username, err := credsutil.GenerateUsername(
-		credsutil.DisplayName(req.UsernameConfig.DisplayName, 8),
-		credsutil.RoleName(req.UsernameConfig.RoleName, 8),
-		credsutil.MaxLength(30),
-		credsutil.Separator("_"),
-		credsutil.ToUpper(),
-	)
+	username, err := o.usernameProducer.Generate(req.UsernameConfig)
 	if err != nil {
 		return dbplugin.NewUserResponse{}, fmt.Errorf("failed to generate username: %w", err)
 	}
-	// Dashes and periods could be in the display or role names but they generally aren't liked by Oracle
-	username = strings.Replace(username, "-", "_", -1)
-	username = strings.Replace(username, ".", "_", -1)
 
 	db, err := o.getConnection(ctx)
 	if err != nil {
