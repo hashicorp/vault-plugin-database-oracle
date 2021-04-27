@@ -15,77 +15,116 @@ import (
 	"unsafe"
 )
 
-// Close closes the statment
-func (stmt *OCI8Stmt) Close() error {
+// Close closes the statement
+func (stmt *Stmt) Close() error {
 	if stmt.closed {
 		return nil
 	}
 	stmt.closed = true
 
-	C.OCIHandleFree(unsafe.Pointer(stmt.stmt), C.OCI_HTYPE_STMT)
+	var result C.sword
+	if stmt.cacheKey == "" {
+		result = C.OCIStmtRelease(
+			stmt.stmt,           // statement handle
+			stmt.conn.errHandle, // error handle
+			nil,                 // key to be associated with the statement in the cache
+			C.ub4(0),            // length of the key
+			stmt.releaseMode,    // mode
+		)
+	} else {
+		cacheKeyP := cString(stmt.cacheKey)
+		defer C.free(unsafe.Pointer(cacheKeyP))
+
+		result = C.OCIStmtRelease(
+			stmt.stmt,                 // statement handle
+			stmt.conn.errHandle,       // error handle
+			cacheKeyP,                 // key to be associated with the statement in the cache
+			C.ub4(len(stmt.cacheKey)), // length of the key
+			stmt.releaseMode,          // mode
+		)
+	}
 
 	stmt.stmt = nil
-	stmt.pbind = nil
 
-	return nil
+	return stmt.conn.getError(result)
 }
 
 // NumInput returns the number of input
-func (stmt *OCI8Stmt) NumInput() int {
-	var bindCount C.ub4 // number of bind position
-	_, err := stmt.ociAttrGet(unsafe.Pointer(&bindCount), C.OCI_ATTR_BIND_COUNT)
-	if err != nil {
-		return -1
-	}
-
-	return int(bindCount)
+func (stmt *Stmt) NumInput() int {
+	return -1
 }
 
-// bind binds the varables / arguments
-func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, error) {
-	if len(args) == 0 {
+// CheckNamedValue checks a named value
+func (stmt *Stmt) CheckNamedValue(namedValue *driver.NamedValue) error {
+	switch namedValue.Value.(type) {
+	case sql.Out:
+		return nil
+	}
+	return driver.ErrSkip
+}
+
+// bindValues binds the values to the stmt
+func (stmt *Stmt) bindValues(values []driver.Value, namedValues []driver.NamedValue) ([]bindStruct, error) {
+	if len(values) == 0 && len(namedValues) == 0 {
 		return nil, nil
 	}
 
-	var binds []oci8Bind
 	var err error
+	var binds []bindStruct
+	var useValues bool
+	count := len(namedValues)
+	if count == 0 {
+		useValues = true
+		count = len(values)
+	}
 
-	for i, arg := range args {
-		var sbind oci8Bind
+	for i := 0; i < count; i++ {
+		if stmt.ctx.Err() != nil {
+			freeBinds(binds)
+			return nil, stmt.ctx.Err()
+		}
+
+		var valueInterface interface{}
+		var sbind bindStruct
 		sbind.length = (*C.ub2)(C.malloc(C.sizeof_ub2))
 		*sbind.length = 0
 		sbind.indicator = (*C.sb2)(C.malloc(C.sizeof_sb2))
 		*sbind.indicator = 0
 
-		argInterface := arg.Value
+		if useValues {
+			valueInterface = values[i]
+		} else {
+			valueInterface = namedValues[i].Value
+		}
+
 		var isOut bool
 		var isNill bool
-		sbind.out, isOut = argInterface.(sql.Out)
+		sbind.out, isOut = valueInterface.(sql.Out)
 		if isOut {
-			argInterface, err = driver.DefaultParameterConverter.ConvertValue(sbind.out.Dest)
+			valueInterface, err = driver.DefaultParameterConverter.ConvertValue(sbind.out.Dest)
 			if err != nil {
 				binds = append(binds, sbind)
 				freeBinds(binds)
 				return nil, err
 			}
-			switch argInterface.(type) {
+			switch valueInterface.(type) {
 			case nil:
 				isNill = true
-				argInterface = sbind.out.Dest
-				switch argInterface.(type) {
+				valueInterface = sbind.out.Dest
+				switch valueInterface.(type) {
 				case *sql.NullBool:
-					argInterface = false
+					valueInterface = false
 				case *sql.NullFloat64:
-					argInterface = float64(0)
+					valueInterface = float64(0)
 				case *sql.NullInt64:
-					argInterface = int64(0)
+					valueInterface = int64(0)
 				case *sql.NullString:
-					argInterface = ""
+					valueInterface = ""
 				}
 			}
 		}
 
-		switch argValue := argInterface.(type) {
+		switch value := valueInterface.(type) {
 
 		case nil:
 			sbind.dataType = C.SQLT_AFC
@@ -96,20 +135,70 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 		case []byte:
 			if isOut {
 
-				sbind.dataType = C.SQLT_BIN
-				sbind.pbuf = unsafe.Pointer(cByteN(argValue, 32768))
-				sbind.maxSize = 32767
-				if sbind.out.In && !isNill {
-					*sbind.length = C.ub2(len(argValue))
+				if len(value) > 32767 {
+					var lobP *unsafe.Pointer
+					lobP, _, err = stmt.conn.ociDescriptorAlloc(C.OCI_DTYPE_LOB, 0)
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
+					sbind.dataType = C.SQLT_BLOB
+					sbind.pbuf = unsafe.Pointer(lobP)
+					sbind.maxSize = C.sb4(sizeOfNilPointer)
+					*sbind.length = C.ub2(sizeOfNilPointer)
+					lobLocator := (**C.OCILobLocator)(sbind.pbuf)
+					err = stmt.conn.ociLobCreateTemporary(*lobLocator, C.SQLCS_IMPLICIT, C.OCI_TEMP_BLOB)
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
+					err = stmt.conn.ociLobWrite(*lobLocator, C.SQLCS_IMPLICIT, value)
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
 				} else {
-					*sbind.indicator = -1 // set to null
+					sbind.dataType = C.SQLT_BIN
+					sbind.pbuf = unsafe.Pointer(cByteN(value, 32768))
+					sbind.maxSize = 32767
+					if sbind.out.In && !isNill {
+						*sbind.length = C.ub2(len(value))
+					} else {
+						*sbind.indicator = -1 // set to null
+					}
 				}
 
 			} else {
-				sbind.dataType = C.SQLT_BIN
-				sbind.pbuf = unsafe.Pointer(cByte(argValue))
-				sbind.maxSize = C.sb4(len(argValue))
-				*sbind.length = C.ub2(len(argValue))
+
+				if len(value) > 32767 {
+					var lobP *unsafe.Pointer
+					lobP, _, err = stmt.conn.ociDescriptorAlloc(C.OCI_DTYPE_LOB, 0)
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
+					sbind.dataType = C.SQLT_BLOB
+					sbind.pbuf = unsafe.Pointer(lobP)
+					sbind.maxSize = C.sb4(sizeOfNilPointer)
+					*sbind.length = C.ub2(sizeOfNilPointer)
+					lobLocator := (**C.OCILobLocator)(sbind.pbuf)
+					err = stmt.conn.ociLobCreateTemporary(*lobLocator, C.SQLCS_IMPLICIT, C.OCI_TEMP_BLOB)
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
+					err = stmt.conn.ociLobWrite(*lobLocator, C.SQLCS_IMPLICIT, value)
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
+				} else {
+					sbind.dataType = C.SQLT_BIN
+					sbind.pbuf = unsafe.Pointer(cByte(value))
+					sbind.maxSize = C.sb4(len(value))
+					*sbind.length = C.ub2(len(value))
+				}
+
 			}
 
 		case time.Time:
@@ -117,123 +206,88 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 			sbind.maxSize = C.sb4(sizeOfNilPointer)
 			*sbind.length = C.ub2(sizeOfNilPointer)
 
-			// TODO: wrap up date time construction into Go function
-
-			var timestampP *unsafe.Pointer
-			timestampP, _, err = stmt.conn.ociDescriptorAlloc(C.OCI_DTYPE_TIMESTAMP_TZ, 0)
+			dateTimePP, err := stmt.conn.timeToOCIDateTime(&value)
 			if err != nil {
-				binds = append(binds, sbind)
 				freeBinds(binds)
-				return nil, err
-			}
-			pt := unsafe.Pointer(timestampP)
-
-			zone, offset := argValue.Zone()
-			size := len(zone)
-			if size < 16 {
-				size = 16
-			}
-			zoneText := cStringN(zone, size)
-			defer C.free(unsafe.Pointer(zoneText))
-
-			tryagain := false
-
-			rv := C.OCIDateTimeConstruct(
-				unsafe.Pointer(stmt.conn.env),
-				stmt.conn.errHandle,
-				(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)),
-				C.sb2(argValue.Year()),
-				C.ub1(argValue.Month()),
-				C.ub1(argValue.Day()),
-				C.ub1(argValue.Hour()),
-				C.ub1(argValue.Minute()),
-				C.ub1(argValue.Second()),
-				C.ub4(argValue.Nanosecond()),
-				zoneText,
-				C.size_t(len(zone)),
-			)
-			if rv != C.OCI_SUCCESS {
-				tryagain = true
-			} else {
-				// check if oracle timezone offset is same ?
-				rvz := C.WrapOCIDateTimeGetTimeZoneNameOffset(
-					stmt.conn.env,
-					stmt.conn.errHandle,
-					(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)))
-				if rvz.rv != C.OCI_SUCCESS {
-					binds = append(binds, sbind)
-					freeBinds(binds)
-					return nil, stmt.conn.getError(rvz.rv)
-				}
-				if offset != int(rvz.h)*60*60+int(rvz.m)*60 {
-					// fmt.Println("oracle timezone offset dont match", zone, offset, int(rvz.h)*60*60+int(rvz.m)*60)
-					tryagain = true
-				}
+				return nil, fmt.Errorf("timeToOCIDateTime for column %v - error: %v", i, err)
 			}
 
-			if tryagain {
-				sign := '+'
-				if offset < 0 {
-					offset = -offset
-					sign = '-'
-				}
-				offset /= 60
-				// oracle accept zones "[+-]hh:mm", try second time
-				zone = fmt.Sprintf("%c%02d:%02d", sign, offset/60, offset%60)
-				if size < len(zone) {
-					size = len(zone)
-					zoneText = cStringN(zone, size)
-					defer C.free(unsafe.Pointer(zoneText))
-				} else {
-					copy((*[1 << 30]byte)(unsafe.Pointer(zoneText))[:len(zone)], zone)
-				}
-
-				rv := C.OCIDateTimeConstruct(
-					unsafe.Pointer(stmt.conn.env),
-					stmt.conn.errHandle,
-					(*C.OCIDateTime)(*(*unsafe.Pointer)(pt)),
-					C.sb2(argValue.Year()),
-					C.ub1(argValue.Month()),
-					C.ub1(argValue.Day()),
-					C.ub1(argValue.Hour()),
-					C.ub1(argValue.Minute()),
-					C.ub1(argValue.Second()),
-					C.ub4(argValue.Nanosecond()),
-					zoneText,
-					C.size_t(len(zone)),
-				)
-				if rv != C.OCI_SUCCESS {
-					binds = append(binds, sbind)
-					freeBinds(binds)
-					return nil, stmt.conn.getError(rv)
-				}
-			}
-
-			sbind.pbuf = unsafe.Pointer((*C.char)(pt))
+			sbind.pbuf = unsafe.Pointer(dateTimePP)
 
 		case string:
 			if isOut {
 
-				sbind.dataType = C.SQLT_CHR
-				sbind.pbuf = unsafe.Pointer(cStringN(argValue, 32768))
-				sbind.maxSize = 32767
-				if sbind.out.In && !isNill {
-					*sbind.length = C.ub2(len(argValue))
+				if len(value) > 32767 {
+					var lobP *unsafe.Pointer
+					lobP, _, err = stmt.conn.ociDescriptorAlloc(C.OCI_DTYPE_LOB, 0)
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
+					sbind.dataType = C.SQLT_CLOB
+					sbind.pbuf = unsafe.Pointer(lobP)
+					sbind.maxSize = C.sb4(sizeOfNilPointer)
+					*sbind.length = C.ub2(sizeOfNilPointer)
+					lobLocator := (**C.OCILobLocator)(sbind.pbuf)
+					err = stmt.conn.ociLobCreateTemporary(*lobLocator, C.SQLCS_IMPLICIT, C.OCI_TEMP_CLOB)
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
+					err = stmt.conn.ociLobWrite(*lobLocator, C.SQLCS_IMPLICIT, []byte(value))
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
 				} else {
-					*sbind.indicator = -1 // set to null
+					sbind.dataType = C.SQLT_CHR
+					sbind.pbuf = unsafe.Pointer(cStringN(value, 32768))
+					sbind.maxSize = 32767
+					if sbind.out.In && !isNill {
+						*sbind.length = C.ub2(len(value))
+					} else {
+						*sbind.indicator = -1 // set to null
+					}
 				}
 
 			} else {
-				sbind.dataType = C.SQLT_AFC
-				sbind.pbuf = unsafe.Pointer(C.CString(argValue))
-				sbind.maxSize = C.sb4(len(argValue))
-				*sbind.length = C.ub2(len(argValue))
+
+				if len(value) > 32767 {
+					var lobP *unsafe.Pointer
+					lobP, _, err = stmt.conn.ociDescriptorAlloc(C.OCI_DTYPE_LOB, 0)
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
+					sbind.dataType = C.SQLT_CLOB
+					sbind.pbuf = unsafe.Pointer(lobP)
+					sbind.maxSize = C.sb4(sizeOfNilPointer)
+					*sbind.length = C.ub2(sizeOfNilPointer)
+					lobLocator := (**C.OCILobLocator)(sbind.pbuf)
+					err = stmt.conn.ociLobCreateTemporary(*lobLocator, C.SQLCS_IMPLICIT, C.OCI_TEMP_CLOB)
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
+					err = stmt.conn.ociLobWrite(*lobLocator, C.SQLCS_IMPLICIT, []byte(value))
+					if err != nil {
+						freeBinds(binds)
+						return nil, err
+					}
+				} else {
+					sbind.dataType = C.SQLT_AFC
+					sbind.pbuf = unsafe.Pointer(C.CString(value))
+					sbind.maxSize = C.sb4(len(value))
+					*sbind.length = C.ub2(len(value))
+				}
+
 			}
 
 		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr:
 			buffer := bytes.Buffer{}
-			err = binary.Write(&buffer, binary.LittleEndian, argValue)
+			err = binary.Write(&buffer, binary.LittleEndian, value)
 			if err != nil {
+				freeBinds(binds)
 				return nil, fmt.Errorf("binary read for column %v - error: %v", i, err)
 			}
 			sbind.dataType = C.SQLT_INT
@@ -246,8 +300,9 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 
 		case float32, float64:
 			buffer := bytes.Buffer{}
-			err = binary.Write(&buffer, binary.LittleEndian, argValue)
+			err = binary.Write(&buffer, binary.LittleEndian, value)
 			if err != nil {
+				freeBinds(binds)
 				return nil, fmt.Errorf("binary read for column %v - error: %v", i, err)
 			}
 			sbind.dataType = C.SQLT_BDOUBLE
@@ -260,7 +315,7 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 
 		case bool: // oracle does not have bool, handle as 0/1 int
 			sbind.dataType = C.SQLT_INT
-			if argValue {
+			if value {
 				sbind.pbuf = unsafe.Pointer(cByte([]byte{1}))
 			} else {
 				sbind.pbuf = unsafe.Pointer(cByte([]byte{0}))
@@ -280,7 +335,7 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 				*sbind.length = 0
 				*sbind.indicator = -1 // set to null
 			} else {
-				d := fmt.Sprintf("%v", argValue)
+				d := fmt.Sprintf("%v", value)
 				sbind.dataType = C.SQLT_AFC
 				sbind.pbuf = unsafe.Pointer(C.CString(d))
 				sbind.maxSize = C.sb4(len(d))
@@ -291,10 +346,11 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 		// add to binds now so if error will be freed by freeBinds call
 		binds = append(binds, sbind)
 
-		if arg.Name != "" {
-			err = stmt.ociBindByName([]byte(":"+arg.Name), &sbind)
-		} else {
+		if useValues || len(namedValues[i].Name) < 1 {
 			err = stmt.ociBindByPos(C.ub4(i+1), &sbind)
+			// TODO: should we use namedValues[i]Ordinal?
+		} else {
+			err = stmt.ociBindByName([]byte(":"+namedValues[i].Name), &sbind)
 		}
 		if err != nil {
 			freeBinds(binds)
@@ -307,30 +363,33 @@ func (stmt *OCI8Stmt) bind(ctx context.Context, args []namedValue) ([]oci8Bind, 
 }
 
 // Query runs a query
-func (stmt *OCI8Stmt) Query(args []driver.Value) (rows driver.Rows, err error) {
-	list := make([]namedValue, len(args))
-	for i, v := range args {
-		list[i] = namedValue{
-			Ordinal: i + 1,
-			Value:   v,
-		}
-	}
-	return stmt.query(context.Background(), list, false)
-}
-
-func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bool) (driver.Rows, error) {
-	var binds []oci8Bind
-	var err error
-
-	binds, err = stmt.bind(ctx, args)
+func (stmt *Stmt) Query(values []driver.Value) (driver.Rows, error) {
+	stmt.ctx = context.Background()
+	binds, err := stmt.bindValues(values, nil)
 	if err != nil {
 		return nil, err
 	}
 
+	return stmt.query(binds)
+}
+
+// QueryContext runs a query with context
+func (stmt *Stmt) QueryContext(ctx context.Context, namedValues []driver.NamedValue) (driver.Rows, error) {
+	stmt.ctx = ctx
+	binds, err := stmt.bindValues(nil, namedValues)
+	if err != nil {
+		return nil, err
+	}
+
+	return stmt.query(binds)
+}
+
+// query runs a query with context
+func (stmt *Stmt) query(binds []bindStruct) (driver.Rows, error) {
 	defer freeBinds(binds)
 
 	var stmtType C.ub2
-	_, err = stmt.ociAttrGet(unsafe.Pointer(&stmtType), C.OCI_ATTR_STMT_TYPE)
+	_, err := stmt.ociAttrGet(unsafe.Pointer(&stmtType), C.OCI_ATTR_STMT_TYPE)
 	if err != nil {
 		return nil, err
 	}
@@ -364,24 +423,53 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 		mode = mode | C.OCI_COMMIT_ON_SUCCESS
 	}
 
+	if stmt.ctx.Err() != nil {
+		return nil, stmt.ctx.Err()
+	}
+
 	done := make(chan struct{})
-	go stmt.ociBreak(ctx, done)
+	go stmt.conn.ociBreakDone(stmt.ctx, done)
 	err = stmt.ociStmtExecute(iter, mode)
 	close(done)
 	if err != nil {
 		return nil, err
 	}
 
+	var defines []defineStruct
+	defines, err = stmt.makeDefines()
+	if err != nil {
+		return nil, err
+	}
+
+	if stmt.ctx.Err() != nil {
+		freeDefines(defines)
+		return nil, stmt.ctx.Err()
+	}
+
+	rows := &Rows{
+		stmt:    stmt,
+		defines: defines,
+	}
+
+	return rows, nil
+}
+
+func (stmt *Stmt) makeDefines() ([]defineStruct, error) {
 	var paramCountUb4 C.ub4 // number of columns in the select-list
-	_, err = stmt.ociAttrGet(unsafe.Pointer(&paramCountUb4), C.OCI_ATTR_PARAM_COUNT)
+	_, err := stmt.ociAttrGet(unsafe.Pointer(&paramCountUb4), C.OCI_ATTR_PARAM_COUNT)
 	if err != nil {
 		return nil, err
 	}
 	paramCount := int(paramCountUb4)
 
-	defines := make([]oci8Define, paramCount)
+	defines := make([]defineStruct, paramCount)
 
 	for i := 0; i < paramCount; i++ {
+		if stmt.ctx.Err() != nil {
+			freeDefines(defines)
+			return nil, stmt.ctx.Err()
+		}
+
 		var param *C.OCIParam
 		param, err = stmt.ociParamGet(C.ub4(i + 1))
 		if err != nil {
@@ -421,7 +509,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 		// switch on dataType
 		switch dataType {
 
-		case C.SQLT_CHR, C.SQLT_AFC, C.SQLT_VCS, C.SQLT_AVC:
+		case C.SQLT_AFC, C.SQLT_CHR, C.SQLT_VCS, C.SQLT_AVC:
 			defines[i].dataType = C.SQLT_AFC
 			// For a database with character set to ZHS16GBK the OCI C driver does not seem to report the correct max size, not sure exactly why.
 			// Doubling the max size of the buffer seems to fix the issue, not sure if there is a better fix.
@@ -453,6 +541,8 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 			// When precision is 0, NUMBER(precision, scale) can be represented simply as NUMBER.
 			// https://docs.oracle.com/cd/E11882_01/appdev.112/e10646/oci06des.htm#LNOCI16458
 
+			// note that select sum and count both return as precision == 0 && scale == 0 so use float64 (SQLT_BDOUBLE) to handle both
+
 			if (precision == 0 && scale == 0) || scale > 0 || scale == -127 {
 				defines[i].dataType = C.SQLT_BDOUBLE
 				defines[i].maxSize = 8
@@ -468,7 +558,7 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 			defines[i].maxSize = 8
 			defines[i].pbuf = C.malloc(C.size_t(defines[i].maxSize))
 
-		case C.SQLT_BFLOAT, C.SQLT_IBFLOAT, C.SQLT_BDOUBLE, C.SQLT_IBDOUBLE:
+		case C.SQLT_BDOUBLE, C.SQLT_IBDOUBLE, C.SQLT_BFLOAT, C.SQLT_IBFLOAT:
 			defines[i].dataType = C.SQLT_BDOUBLE
 			defines[i].maxSize = 8
 			defines[i].pbuf = C.malloc(C.size_t(defines[i].maxSize))
@@ -538,6 +628,17 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 			defines[i].maxSize = 40
 			defines[i].pbuf = C.malloc(C.size_t(defines[i].maxSize))
 
+		case C.SQLT_RSET: // ref cursor
+			defines[i].dataType = dataType
+			defines[i].maxSize = C.sb4(sizeOfNilPointer)
+			var stmtP *unsafe.Pointer
+			stmtP, _, err = stmt.conn.ociHandleAlloc(C.OCI_HTYPE_STMT, 0)
+			if err != nil {
+				freeDefines(defines)
+				return nil, err
+			}
+			defines[i].pbuf = unsafe.Pointer(stmtP)
+
 		default:
 			defines[i].dataType = C.SQLT_AFC
 			defines[i].maxSize = C.sb4(maxSize)
@@ -563,24 +664,16 @@ func (stmt *OCI8Stmt) query(ctx context.Context, args []namedValue, closeRows bo
 		}
 	}
 
-	rows := &OCI8Rows{
-		stmt:    stmt,
-		defines: defines,
-		done:    make(chan struct{}),
-		cls:     closeRows,
-	}
-
-	go stmt.ociBreak(ctx, rows.done)
-
-	return rows, nil
+	return defines, nil
 }
 
 // getRowid returns the rowid
-func (stmt *OCI8Stmt) getRowid() (string, error) {
+func (stmt *Stmt) getRowid() (string, error) {
 	rowidP, _, err := stmt.conn.ociDescriptorAlloc(C.OCI_DTYPE_ROWID, 0)
 	if err != nil {
 		return "", err
 	}
+	defer C.OCIDescriptorFree(*rowidP, C.OCI_DTYPE_ROWID)
 
 	// OCI_ATTR_ROWID returns the ROWID descriptor allocated with OCIDescriptorAlloc()
 	_, err = stmt.ociAttrGet(*rowidP, C.OCI_ATTR_ROWID)
@@ -601,7 +694,7 @@ func (stmt *OCI8Stmt) getRowid() (string, error) {
 }
 
 // rowsAffected returns the number of rows affected
-func (stmt *OCI8Stmt) rowsAffected() (int64, error) {
+func (stmt *Stmt) rowsAffected() (int64, error) {
 	var rowCount C.ub4 // Number of rows processed so far after SELECT statements. For INSERT, UPDATE, and DELETE statements, it is the number of rows processed by the most recent statement. The default value is 1.
 	_, err := stmt.ociAttrGet(unsafe.Pointer(&rowCount), C.OCI_ATTR_ROW_COUNT)
 	if err != nil {
@@ -611,24 +704,28 @@ func (stmt *OCI8Stmt) rowsAffected() (int64, error) {
 }
 
 // Exec runs an exec query
-func (stmt *OCI8Stmt) Exec(args []driver.Value) (r driver.Result, err error) {
-	list := make([]namedValue, len(args))
-	for i, v := range args {
-		list[i] = namedValue{
-			Ordinal: i + 1,
-			Value:   v,
-		}
-	}
-	return stmt.exec(context.Background(), list)
-}
-
-// exec runs an exec query
-func (stmt *OCI8Stmt) exec(ctx context.Context, args []namedValue) (driver.Result, error) {
-	binds, err := stmt.bind(ctx, args)
+func (stmt *Stmt) Exec(values []driver.Value) (driver.Result, error) {
+	stmt.ctx = context.Background()
+	binds, err := stmt.bindValues(values, nil)
 	if err != nil {
 		return nil, err
 	}
 
+	return stmt.exec(binds)
+}
+
+// ExecContext run a exec query with context
+func (stmt *Stmt) ExecContext(ctx context.Context, namedValues []driver.NamedValue) (driver.Result, error) {
+	stmt.ctx = ctx
+	binds, err := stmt.bindValues(nil, namedValues)
+	if err != nil {
+		return nil, err
+	}
+
+	return stmt.exec(binds)
+}
+
+func (stmt *Stmt) exec(binds []bindStruct) (driver.Result, error) {
 	defer freeBinds(binds)
 
 	mode := C.ub4(C.OCI_DEFAULT)
@@ -636,15 +733,19 @@ func (stmt *OCI8Stmt) exec(ctx context.Context, args []namedValue) (driver.Resul
 		mode = mode | C.OCI_COMMIT_ON_SUCCESS
 	}
 
+	if stmt.ctx.Err() != nil {
+		return nil, stmt.ctx.Err()
+	}
+
 	done := make(chan struct{})
-	go stmt.ociBreak(ctx, done)
-	err = stmt.ociStmtExecute(1, mode)
+	go stmt.conn.ociBreakDone(stmt.ctx, done)
+	err := stmt.ociStmtExecute(1, mode)
 	close(done)
 	if err != nil && err != ErrOCISuccessWithInfo {
 		return nil, err
 	}
 
-	result := OCI8Result{stmt: stmt}
+	result := Result{stmt: stmt}
 
 	result.rowsAffected, result.rowsAffectedErr = stmt.rowsAffected()
 	if result.rowsAffectedErr != nil || result.rowsAffected < 1 {
@@ -662,12 +763,13 @@ func (stmt *OCI8Stmt) exec(ctx context.Context, args []namedValue) (driver.Resul
 }
 
 // outputBoundParameters sets bound parameters
-func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
+func (stmt *Stmt) outputBoundParameters(binds []bindStruct) error {
 	var err error
 
 	for i, bind := range binds {
 		if bind.pbuf != nil {
 			switch dest := bind.out.Dest.(type) {
+
 			case *string:
 				switch {
 				case *bind.indicator > 0: // indicator variable is the actual length before truncation
@@ -677,7 +779,17 @@ func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
 					}
 					*dest = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length)) + strings.Repeat(" ", spaces)
 				case *bind.indicator == 0: // Normal
-					*dest = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length))
+					if bind.dataType == C.SQLT_CLOB {
+						lobLocator := (**C.OCILobLocator)(bind.pbuf)
+						var buffer []byte
+						buffer, err = stmt.conn.ociLobRead(*lobLocator, C.SQLCS_IMPLICIT)
+						if err != nil {
+							return err
+						}
+						*dest = string(buffer)
+					} else {
+						*dest = C.GoStringN((*C.char)(bind.pbuf), C.int(*bind.length))
+					}
 				case *bind.indicator == -1: // The selected value is null
 					*dest = "" // best attempt at Go nil string
 				case *bind.indicator == -2: // Item is greater than the length of the output variable; the item has been truncated.
@@ -750,7 +862,7 @@ func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
 				}
 				*dest = data
 			case *float32:
-				// statment is using SQLT_BDOUBLE to bind
+				// statement is using SQLT_BDOUBLE to bind
 				// need to read as float64 because of the 8 bits
 				buf := (*[8]byte)(bind.pbuf)[0:8]
 				var data float64
@@ -795,7 +907,15 @@ func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
 					}
 					*dest = C.GoBytes(bind.pbuf, C.int(*bind.indicator))
 				case *bind.indicator == 0: // Normal
-					*dest = C.GoBytes(bind.pbuf, C.int(*bind.length))
+					if bind.dataType == C.SQLT_BLOB {
+						lobLocator := (**C.OCILobLocator)(bind.pbuf)
+						*dest, err = stmt.conn.ociLobRead(*lobLocator, C.SQLCS_IMPLICIT)
+						if err != nil {
+							return err
+						}
+					} else {
+						*dest = C.GoBytes(bind.pbuf, C.int(*bind.length))
+					}
 				case *bind.indicator == -1: // The selected value is null
 					*dest = nil
 				case *bind.indicator == -2: // Item is greater than the length of the output variable; the item has been truncated.
@@ -804,8 +924,8 @@ func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
 				default:
 					return fmt.Errorf("unknown column indicator %d for column %v", *bind.indicator, i)
 				}
-			}
 
+			}
 		}
 	}
 
@@ -814,7 +934,7 @@ func (stmt *OCI8Stmt) outputBoundParameters(binds []oci8Bind) error {
 
 // ociParamGet calls OCIParamGet then returns OCIParam and error.
 // OCIDescriptorFree must be called on returned OCIParam.
-func (stmt *OCI8Stmt) ociParamGet(position C.ub4) (*C.OCIParam, error) {
+func (stmt *Stmt) ociParamGet(position C.ub4) (*C.OCIParam, error) {
 	var paramTemp *C.OCIParam
 	param := &paramTemp
 
@@ -823,7 +943,7 @@ func (stmt *OCI8Stmt) ociParamGet(position C.ub4) (*C.OCIParam, error) {
 		C.OCI_HTYPE_STMT,                         // Handle type: OCI_HTYPE_STMT, for a statement handle
 		stmt.conn.errHandle,                      // An error handle
 		(*unsafe.Pointer)(unsafe.Pointer(param)), // A descriptor of the parameter at the position
-		position, // Position number in the statement handle or describe handle. A parameter descriptor will be returned for this position.
+		position,                                 // Position number in the statement handle or describe handle. A parameter descriptor will be returned for this position.
 	)
 
 	err := stmt.conn.getError(result)
@@ -836,7 +956,7 @@ func (stmt *OCI8Stmt) ociParamGet(position C.ub4) (*C.OCIParam, error) {
 
 // ociAttrGet calls OCIAttrGet with OCIStmt then returns attribute size and error.
 // The attribute value is stored into passed value.
-func (stmt *OCI8Stmt) ociAttrGet(value unsafe.Pointer, attributeType C.ub4) (C.ub4, error) {
+func (stmt *Stmt) ociAttrGet(value unsafe.Pointer, attributeType C.ub4) (C.ub4, error) {
 	var size C.ub4
 
 	result := C.OCIAttrGet(
@@ -852,7 +972,7 @@ func (stmt *OCI8Stmt) ociAttrGet(value unsafe.Pointer, attributeType C.ub4) (C.u
 }
 
 // ociBindByName calls OCIBindByName, then returns bind handle and error.
-func (stmt *OCI8Stmt) ociBindByName(name []byte, bind *oci8Bind) error {
+func (stmt *Stmt) ociBindByName(name []byte, bind *bindStruct) error {
 	result := C.OCIBindByName(
 		stmt.stmt,                      // The statement handle
 		&bind.bindHandle,               // The bind handle that is implicitly allocated by this call. The handle is freed implicitly when the statement handle is deallocated.
@@ -874,7 +994,7 @@ func (stmt *OCI8Stmt) ociBindByName(name []byte, bind *oci8Bind) error {
 }
 
 // ociBindByPos calls OCIBindByPos, then returns bind handle and error.
-func (stmt *OCI8Stmt) ociBindByPos(position C.ub4, bind *oci8Bind) error {
+func (stmt *Stmt) ociBindByPos(position C.ub4, bind *bindStruct) error {
 	result := C.OCIBindByPos(
 		stmt.stmt,                      // The statement handle
 		&bind.bindHandle,               // The bind handle that is implicitly allocated by this call. The handle is freed implicitly when the statement handle is deallocated.
@@ -895,7 +1015,7 @@ func (stmt *OCI8Stmt) ociBindByPos(position C.ub4, bind *oci8Bind) error {
 }
 
 // ociStmtExecute calls OCIStmtExecute
-func (stmt *OCI8Stmt) ociStmtExecute(iters C.ub4, mode C.ub4) error {
+func (stmt *Stmt) ociStmtExecute(iters C.ub4, mode C.ub4) error {
 	result := C.OCIStmtExecute(
 		stmt.conn.svc,       // Service context handle
 		stmt.stmt,           // A statement handle
@@ -907,26 +1027,10 @@ func (stmt *OCI8Stmt) ociStmtExecute(iters C.ub4, mode C.ub4) error {
 		mode,                // The mode: https://docs.oracle.com/cd/E11882_01/appdev.112/e10646/oci17msc001.htm#LNOCI17163
 	)
 
-	return stmt.conn.getError(result)
-}
-
-// ociBreak calls OCIBreak if ctx.Done is finished before done chan is closed
-func (stmt *OCI8Stmt) ociBreak(ctx context.Context, done chan struct{}) {
-	select {
-	case <-done:
-	case <-ctx.Done():
-		// select again to avoid race condition if both are done
-		select {
-		case <-done:
-		default:
-			result := C.OCIBreak(
-				unsafe.Pointer(stmt.conn.svc), // The service context handle or the server context handle.
-				stmt.conn.errHandle,           // An error handle
-			)
-			err := stmt.conn.getError(result)
-			if err != nil {
-				stmt.conn.logger.Print("OCIBreak error: ", err)
-			}
-		}
+	if stmt.cacheKey != "" && result != C.OCI_SUCCESS && result != C.OCI_SUCCESS_WITH_INFO {
+		// drop statement from cache for all errors when caching is enabled
+		stmt.releaseMode = C.OCI_STRLS_CACHE_DELETE
 	}
+
+	return stmt.conn.getError(result)
 }

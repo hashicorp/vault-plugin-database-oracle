@@ -16,7 +16,7 @@ require (
 	github.com/hashicorp/vault/api v1.0.5-0.20200404004616-3a7aac83ef75
 	github.com/hashicorp/vault/sdk v0.1.14-0.20200404004616-3a7aac83ef75
 	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d // indirect
-	github.com/mattn/go-oci8 v0.0.0-20190410054007-e00f23025626
+	github.com/mattn/go-oci8 v0.1.1
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/opencontainers/runc v0.1.1 // indirect
