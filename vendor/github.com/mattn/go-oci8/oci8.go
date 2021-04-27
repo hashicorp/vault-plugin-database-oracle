@@ -20,11 +20,14 @@ import (
 //
 // It expects to receive a string in the form:
 //
-// [username/[password]@]host[:port][/instance_name][?param1=value1&...&paramN=valueN]
+// [username/[password]@]host[:port][/service_name][?param1=value1&...&paramN=valueN]
+//
+// Connection timeout can be set in the Oracle files: sqlnet.ora as SQLNET.OUTBOUND_CONNECT_TIMEOUT or tnsnames.ora as CONNECT_TIMEOUT
 //
 // Supported parameters are:
 //
-// loc - the time location for timezone when reading/writing Go time/Oracle date
+// loc - the time location for reading timestamp (without time zone). Defaults to UTC
+// Note that writing a timestamp (without time zone) just truncates the time zone.
 //
 // isolation - the isolation level that can be set to: READONLY, SERIALIZABLE, or DEFAULT
 //
@@ -35,8 +38,6 @@ import (
 // questionph - when true, enables question mark placeholders. Defaults to false. (uses strconv.ParseBool to check for true)
 func ParseDSN(dsnString string) (dsn *DSN, err error) {
 
-	dsn = &DSN{Location: time.Local}
-
 	if dsnString == "" {
 		return nil, errors.New("empty dsn")
 	}
@@ -45,6 +46,14 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 
 	if strings.HasPrefix(dsnString, prefix) {
 		dsnString = dsnString[len(prefix):]
+	}
+
+	dsn = &DSN{
+		prefetchRows:   0,
+		prefetchMemory: 4096,
+		stmtCacheSize:  0,
+		operationMode:  C.OCI_DEFAULT,
+		timeLocation:   time.UTC,
 	}
 
 	authority, dsnString := splitRight(dsnString, "@")
@@ -63,17 +72,12 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 
 	dsn.Connect = host
 
-	// set safe defaults
-	dsn.prefetchRows = 0
-	dsn.prefetchMemory = 4096
-	dsn.operationMode = C.OCI_DEFAULT
-
 	qp, err := ParseQuery(params)
 	for k, v := range qp {
 		switch k {
 		case "loc":
 			if len(v) > 0 {
-				if dsn.Location, err = time.LoadLocation(v[0]); err != nil {
+				if dsn.timeLocation, err = time.LoadLocation(v[0]); err != nil {
 					return nil, fmt.Errorf("Invalid loc: %v: %v", v[0], err)
 				}
 			}
@@ -91,7 +95,7 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 		case "questionph":
 			dsn.enableQMPlaceholders, err = strconv.ParseBool(v[0])
 			if err != nil {
-				return nil, fmt.Errorf("Invalid questionpm: %v", v[0])
+				return nil, fmt.Errorf("Invalid questionph: %v", v[0])
 			}
 		case "prefetch_rows":
 			z, err := strconv.ParseUint(v[0], 10, 32)
@@ -116,18 +120,20 @@ func ParseDSN(dsnString string) (dsn *DSN, err error) {
 			default:
 				return nil, fmt.Errorf("Invalid as: %v", v[0])
 			}
-
+		case "stmt_cache_size":
+			z, err := strconv.ParseUint(v[0], 10, 32)
+			if err != nil {
+				return nil, fmt.Errorf("invalid stmt_cache_size: %v", v[0])
+			}
+			dsn.stmtCacheSize = C.ub4(z)
 		}
 	}
 
-	if len(dsn.Username)+len(dsn.Password)+len(dsn.Connect) == 0 {
-		dsn.externalauthentication = true
-	}
 	return dsn, nil
 }
 
 // Commit transaction commit
-func (tx *OCI8Tx) Commit() error {
+func (tx *Tx) Commit() error {
 	tx.conn.inTransaction = false
 	if rv := C.OCITransCommit(
 		tx.conn.svc,
@@ -140,7 +146,7 @@ func (tx *OCI8Tx) Commit() error {
 }
 
 // Rollback transaction rollback
-func (tx *OCI8Tx) Rollback() error {
+func (tx *Tx) Rollback() error {
 	tx.conn.inTransaction = false
 	if rv := C.OCITransRollback(
 		tx.conn.svc,
@@ -153,16 +159,17 @@ func (tx *OCI8Tx) Rollback() error {
 }
 
 // Open opens a new database connection
-func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) {
+func (drv *DriverStruct) Open(dsnString string) (driver.Conn, error) {
 	var err error
 	var dsn *DSN
 	if dsn, err = ParseDSN(dsnString); err != nil {
 		return nil, err
 	}
 
-	conn := OCI8Conn{
+	conn := Conn{
 		operationMode: dsn.operationMode,
-		logger:        oci8Driver.Logger,
+		stmtCacheSize: dsn.stmtCacheSize,
+		logger:        drv.Logger,
 	}
 	if conn.logger == nil {
 		conn.logger = log.New(ioutil.Discard, "", 0)
@@ -196,8 +203,36 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 	conn.env = *envPP
 
 	// defer on error handle free
+	var doneSessionBegin bool
+	var doneServerAttach bool
+	var doneLogon bool
 	defer func(errP *error) {
 		if *errP != nil {
+			if doneSessionBegin {
+				C.OCISessionEnd(
+					conn.svc,
+					conn.errHandle,
+					conn.usrSession,
+					C.OCI_DEFAULT,
+				)
+			}
+			if doneLogon {
+				C.OCILogoff(
+					conn.svc,
+					conn.errHandle,
+				)
+			}
+			if doneServerAttach {
+				C.OCIServerDetach(
+					conn.srv,
+					conn.errHandle,
+					C.OCI_DEFAULT,
+				)
+			}
+			if conn.txHandle != nil {
+				C.OCIHandleFree(unsafe.Pointer(conn.txHandle), C.OCI_HTYPE_TRANS)
+				conn.txHandle = nil
+			}
 			if conn.usrSession != nil {
 				C.OCIHandleFree(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION)
 				conn.usrSession = nil
@@ -223,20 +258,20 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 	handle := &handleTemp
 	result = C.OCIHandleAlloc(
 		unsafe.Pointer(conn.env), // An environment handle
-		handle,            // Returns a handle
-		C.OCI_HTYPE_ERROR, // type of handle: https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci02bas.htm#LNOCI87581
-		0,                 // amount of user memory to be allocated
-		nil,               // Returns a pointer to the user memory
+		handle,                   // Returns a handle
+		C.OCI_HTYPE_ERROR,        // type of handle: https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci02bas.htm#LNOCI87581
+		0,                        // amount of user memory to be allocated
+		nil,                      // Returns a pointer to the user memory
 	)
 	if result != C.OCI_SUCCESS {
 		// TODO: error handle not yet allocated, how to get string error from oracle?
-		return nil, errors.New("allocate error handle error")
+		err = errors.New("allocate error handle error")
+		return nil, err
 	}
 	conn.errHandle = (*C.OCIError)(*handle)
-	handle = nil
 
-	host := cString(dsn.Connect)
-	defer C.free(unsafe.Pointer(host))
+	connectString := cString(dsn.Connect)
+	defer C.free(unsafe.Pointer(connectString))
 	username := cString(dsn.Username)
 	defer C.free(unsafe.Pointer(username))
 	password := cString(dsn.Password)
@@ -249,28 +284,29 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 			return nil, fmt.Errorf("allocate server handle error: %v", err)
 		}
 		conn.srv = (*C.OCIServer)(*handle)
-		handle = nil
 
-		if dsn.externalauthentication {
+		if len(dsn.Connect) < 1 {
 			result = C.OCIServerAttach(
 				conn.srv,       // uninitialized server handle, which gets initialized by this call. Passing in an initialized server handle causes an error.
 				conn.errHandle, // error handle
-				nil,            // database server to use
-				0,              //  length of the database server
+				nil,            // connect string or a service point
+				0,              // length of the database server
 				C.OCI_DEFAULT,  // mode of operation: OCI_DEFAULT or OCI_CPOOL
 			)
 		} else {
 			result = C.OCIServerAttach(
-				conn.srv,       // uninitialized server handle, which gets initialized by this call. Passing in an initialized server handle causes an error.
-				conn.errHandle, // error handle
-				host,           // database server to use
-				C.sb4(len(dsn.Connect)), //  length of the database server
+				conn.srv,                // uninitialized server handle, which gets initialized by this call. Passing in an initialized server handle causes an error.
+				conn.errHandle,          // error handle
+				connectString,           // connect string or a service point
+				C.sb4(len(dsn.Connect)), // length of the database server
 				C.OCI_DEFAULT,           // mode of operation: OCI_DEFAULT or OCI_CPOOL
 			)
 		}
 		if result != C.OCI_SUCCESS {
+			err = conn.getError(result)
 			return nil, conn.getError(result)
 		}
+		doneServerAttach = true
 
 		// service handle
 		handle, _, err = conn.ociHandleAlloc(C.OCI_HTYPE_SVCCTX, 0)
@@ -278,12 +314,11 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 			return nil, fmt.Errorf("allocate service handle error: %v", err)
 		}
 		conn.svc = (*C.OCISvcCtx)(*handle)
-		handle = nil
 
 		// sets the server context attribute of the service context
 		err = conn.ociAttrSet(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX, unsafe.Pointer(conn.srv), 0, C.OCI_ATTR_SERVER)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("server context attribute set error: %v", err)
 		}
 
 		// user session handle
@@ -292,20 +327,19 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 			return nil, fmt.Errorf("allocate user session handle error: %v", err)
 		}
 		conn.usrSession = (*C.OCISession)(*handle)
-		handle = nil
 
 		credentialType := C.ub4(C.OCI_CRED_EXT)
-		if !dsn.externalauthentication {
+		if len(dsn.Username) > 0 {
 			// specifies a username to use for authentication
 			err = conn.ociAttrSet(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION, unsafe.Pointer(username), C.ub4(len(dsn.Username)), C.OCI_ATTR_USERNAME)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("username attribute set error: %v", err)
 			}
 
 			// specifies a password to use for authentication
 			err = conn.ociAttrSet(unsafe.Pointer(conn.usrSession), C.OCI_HTYPE_SESSION, unsafe.Pointer(password), C.ub4(len(dsn.Password)), C.OCI_ATTR_PASSWORD)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("password attribute set error: %v", err)
 			}
 
 			credentialType = C.OCI_CRED_RDBMS
@@ -319,13 +353,23 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 			conn.operationMode, // mode of operation. https://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci16rel001.htm#LNOCI87690
 		)
 		if result != C.OCI_SUCCESS && result != C.OCI_SUCCESS_WITH_INFO {
-			return nil, conn.getError(result)
+			err = conn.getError(result)
+			return nil, err
 		}
+		doneSessionBegin = true
 
 		// sets the authentication context attribute of the service context
 		err = conn.ociAttrSet(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX, unsafe.Pointer(conn.usrSession), 0, C.OCI_ATTR_SESSION)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("authentication context attribute set error: %v", err)
+		}
+
+		if dsn.stmtCacheSize > 0 {
+			stmtCacheSize := dsn.stmtCacheSize
+			err = conn.ociAttrSet(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX, unsafe.Pointer(&stmtCacheSize), 0, C.OCI_ATTR_STMTCACHESIZE)
+			if err != nil {
+				return nil, fmt.Errorf("stmt cache size attribute set error: %v", err)
+			}
 		}
 
 	} else {
@@ -340,37 +384,51 @@ func (oci8Driver *OCI8DriverStruct) Open(dsnString string) (driver.Conn, error) 
 			C.ub4(len(dsn.Username)), // length of user name, in number of bytes, regardless of the encoding
 			password,                 // user's password. Must be in the encoding specified by the charset parameter of a previous call to OCIEnvNlsCreate().
 			C.ub4(len(dsn.Password)), // length of password, in number of bytes, regardless of the encoding.
-			host, // name of the database to connect to. Must be in the encoding specified by the charset parameter of a previous call to OCIEnvNlsCreate().
-			C.ub4(len(dsn.Connect)), // length of dbname, in number of bytes, regardless of the encoding.
+			connectString,            // name of the database to connect to. Must be in the encoding specified by the charset parameter of a previous call to OCIEnvNlsCreate().
+			C.ub4(len(dsn.Connect)),  // length of dbname, in number of bytes, regardless of the encoding.
 		)
 		if result != C.OCI_SUCCESS && result != C.OCI_SUCCESS_WITH_INFO {
-			return nil, conn.getError(result)
+			err = conn.getError(result)
+			return nil, err
 		}
 		conn.svc = *svcCtxPP
-
+		doneLogon = true
 	}
 
-	conn.location = dsn.Location
+	// Create transaction context.
+	handle, _, err = conn.ociHandleAlloc(C.OCI_HTYPE_TRANS, 0)
+	if err != nil {
+		return nil, fmt.Errorf("allocate transaction handle error: %v", err)
+	}
+	conn.txHandle = (*C.OCITrans)(*handle)
+
+	// Set transaction context attribute of the service context.
+	err = conn.ociAttrSet(unsafe.Pointer(conn.svc), C.OCI_HTYPE_SVCCTX, *handle, 0, C.OCI_ATTR_TRANS)
+	if err != nil {
+		return nil, fmt.Errorf("service context attribute set error: %v", err)
+	}
+
 	conn.transactionMode = dsn.transactionMode
 	conn.prefetchRows = dsn.prefetchRows
 	conn.prefetchMemory = dsn.prefetchMemory
+	conn.timeLocation = dsn.timeLocation
 	conn.enableQMPlaceholders = dsn.enableQMPlaceholders
 
 	return &conn, nil
 }
 
-// GetLastInsertId retuns rowid from LastInsertId
+// GetLastInsertId returns rowid from LastInsertId
 func GetLastInsertId(id int64) string {
 	return *(*string)(unsafe.Pointer(uintptr(id)))
 }
 
 // LastInsertId returns last inserted ID
-func (result *OCI8Result) LastInsertId() (int64, error) {
+func (result *Result) LastInsertId() (int64, error) {
 	return int64(uintptr(unsafe.Pointer(&result.rowid))), result.rowidErr
 }
 
 // RowsAffected returns rows affected
-func (result *OCI8Result) RowsAffected() (int64, error) {
+func (result *Result) RowsAffected() (int64, error) {
 	return result.rowsAffected, result.rowsAffectedErr
 }
 
@@ -381,4 +439,28 @@ func placeholders(sql string) string {
 		n++
 		return ":" + strconv.Itoa(n)
 	})
+}
+
+func timezoneToLocation(hour int64, minute int64) *time.Location {
+	if minute != 0 || hour > 14 || hour < -12 {
+		// create location with FixedZone
+		var name string
+		if hour < 0 {
+			name = strconv.FormatInt(hour, 10) + ":"
+		} else {
+			name = "+" + strconv.FormatInt(hour, 10) + ":"
+		}
+		if minute == 0 {
+			name += "00"
+		} else {
+			if minute < 10 {
+				name += "0"
+			}
+			name += strconv.FormatInt(minute, 10)
+		}
+		return time.FixedZone(name, (3600*int(hour))+(60*int(minute)))
+	}
+
+	// use location from timeLocations cache
+	return timeLocations[12+hour]
 }
