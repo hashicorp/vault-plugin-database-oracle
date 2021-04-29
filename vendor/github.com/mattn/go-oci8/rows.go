@@ -15,17 +15,12 @@ import (
 )
 
 // Close closes rows
-func (rows *OCI8Rows) Close() error {
+func (rows *Rows) Close() error {
 	if rows.closed {
 		return nil
 	}
 
 	rows.closed = true
-	close(rows.done)
-
-	if rows.cls {
-		rows.stmt.Close()
-	}
 
 	freeDefines(rows.defines)
 
@@ -33,20 +28,27 @@ func (rows *OCI8Rows) Close() error {
 }
 
 // Columns returns column names
-func (rows *OCI8Rows) Columns() []string {
+func (rows *Rows) Columns() []string {
 	names := make([]string, len(rows.defines))
-	for i, define := range rows.defines {
-		names[i] = define.name
+	for i := 0; i < len(rows.defines); i++ {
+		names[i] = rows.defines[i].name
 	}
 	return names
 }
 
 // Next gets next row
-func (rows *OCI8Rows) Next(dest []driver.Value) error {
+func (rows *Rows) Next(dest []driver.Value) error {
 	if rows.closed {
 		return nil
 	}
 
+	if rows.stmt.ctx.Err() != nil {
+		return rows.stmt.ctx.Err()
+	}
+
+	done := make(chan struct{})
+	defer close(done)
+	go rows.stmt.conn.ociBreakDone(rows.stmt.ctx, done)
 	result := C.OCIStmtFetch2(
 		rows.stmt.stmt,
 		rows.stmt.conn.errHandle,
@@ -83,25 +85,12 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 				int(buf[5])-1,
 				int(buf[6])-1,
 				0,
-				rows.stmt.conn.location)
+				rows.stmt.conn.timeLocation)
 
 		// SQLT_BLOB and SQLT_CLOB
 		case C.SQLT_BLOB, C.SQLT_CLOB:
 			lobLocator := (**C.OCILobLocator)(rows.defines[i].pbuf)
-
-			// set character set form
-			form := C.ub1(C.SQLCS_IMPLICIT)
-			result = C.OCILobCharSetForm(
-				rows.stmt.conn.env,       // environment handle
-				rows.stmt.conn.errHandle, // error handle
-				*lobLocator,              // LOB locator
-				&form,                    // character set form
-			)
-			if result != C.OCI_SUCCESS {
-				return rows.stmt.conn.getError(result)
-			}
-
-			buffer, err := rows.stmt.conn.ociLobRead(*lobLocator, form)
+			buffer, err := rows.stmt.conn.ociLobRead(*lobLocator, C.SQLCS_IMPLICIT)
 			if err != nil {
 				return err
 			}
@@ -154,57 +143,19 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 
 		// SQLT_TIMESTAMP
 		case C.SQLT_TIMESTAMP:
-			if rv := C.WrapOCIDateTimeGetDateTime(
-				rows.stmt.conn.env,
-				rows.stmt.conn.errHandle,
-				*(**C.OCIDateTime)(rows.defines[i].pbuf),
-			); rv.rv != C.OCI_SUCCESS {
-				return rows.stmt.conn.getError(rv.rv)
-			} else {
-				dest[i] = time.Date(
-					int(rv.y),
-					time.Month(rv.m),
-					int(rv.d),
-					int(rv.hh),
-					int(rv.mm),
-					int(rv.ss),
-					int(rv.ff),
-					rows.stmt.conn.location,
-				)
+			aTime, err := rows.stmt.conn.ociDateTimeToTime(*(**C.OCIDateTime)(rows.defines[i].pbuf), false)
+			if err != nil {
+				return fmt.Errorf("ociDateTimeToTime for column %v - error: %v", i, err)
 			}
+			dest[i] = *aTime
 
 		// SQLT_TIMESTAMP_TZ and SQLT_TIMESTAMP_LTZ
 		case C.SQLT_TIMESTAMP_TZ, C.SQLT_TIMESTAMP_LTZ:
-			tptr := *(**C.OCIDateTime)(rows.defines[i].pbuf)
-			rv := C.WrapOCIDateTimeGetDateTime(
-				rows.stmt.conn.env,
-				rows.stmt.conn.errHandle,
-				tptr)
-			if rv.rv != C.OCI_SUCCESS {
-				return rows.stmt.conn.getError(rv.rv)
-			}
-			rvz := C.WrapOCIDateTimeGetTimeZoneNameOffset(
-				rows.stmt.conn.env,
-				rows.stmt.conn.errHandle,
-				tptr)
-			if rvz.rv != C.OCI_SUCCESS {
-				return rows.stmt.conn.getError(rvz.rv)
-			}
-			nnn := C.GoStringN((*C.char)((unsafe.Pointer)(&rvz.zone[0])), C.int(rvz.zlen))
-			loc, err := time.LoadLocation(nnn)
+			aTime, err := rows.stmt.conn.ociDateTimeToTime(*(**C.OCIDateTime)(rows.defines[i].pbuf), true)
 			if err != nil {
-				// TODO: reuse locations
-				loc = time.FixedZone(nnn, int(rvz.h)*60*60+int(rvz.m)*60)
+				return fmt.Errorf("ociDateTimeToTime for column %v - error: %v", i, err)
 			}
-			dest[i] = time.Date(
-				int(rv.y),
-				time.Month(rv.m),
-				int(rv.d),
-				int(rv.hh),
-				int(rv.mm),
-				int(rv.ss),
-				int(rv.ff),
-				loc)
+			dest[i] = *aTime
 
 		// SQLT_INTERVAL_DS
 		case C.SQLT_INTERVAL_DS:
@@ -217,12 +168,12 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 			result = C.OCIIntervalGetDaySecond(
 				unsafe.Pointer(rows.stmt.conn.env), // environment handle
 				rows.stmt.conn.errHandle,           // error handle
-				&days,        // days
-				&hours,       // hours
-				&minutes,     // minutes
-				&seconds,     // seconds
-				&fracSeconds, // fractional seconds
-				interval,     // interval
+				&days,                              // days
+				&hours,                             // hours
+				&minutes,                           // minutes
+				&seconds,                           // seconds
+				&fracSeconds,                       // fractional seconds
+				interval,                           // interval
 			)
 			if result != C.OCI_SUCCESS {
 				return rows.stmt.conn.getError(result)
@@ -239,43 +190,49 @@ func (rows *OCI8Rows) Next(dest []driver.Value) error {
 			result = C.OCIIntervalGetYearMonth(
 				unsafe.Pointer(rows.stmt.conn.env), // environment handle
 				rows.stmt.conn.errHandle,           // error handle
-				&years,   // year
-				&months,  // month
-				interval, // interval
+				&years,                             // year
+				&months,                            // month
+				interval,                           // interval
 			)
 			if result != C.OCI_SUCCESS {
 				return rows.stmt.conn.getError(result)
 			}
 			dest[i] = (int64(years) * 12) + int64(months)
 
+		// SQLT_RSET - ref cursor
+		case C.SQLT_RSET:
+			stmtP := (**C.OCIStmt)(rows.defines[i].pbuf)
+			subStmt := &Stmt{conn: rows.stmt.conn, stmt: *stmtP, ctx: rows.stmt.ctx, releaseMode: C.ub4(C.OCI_DEFAULT)}
+			if rows.defines[i].subDefines == nil {
+				var err error
+				rows.defines[i].subDefines, err = subStmt.makeDefines()
+				if err != nil {
+					return err
+				}
+			}
+			subRows := &Rows{
+				stmt:    subStmt,
+				defines: rows.defines[i].subDefines,
+			}
+			dest[i] = subRows
+
 		// default
 		default:
 			return fmt.Errorf("Unhandled column type: %d", rows.defines[i].dataType)
 
 		}
-
 	}
 
 	return nil
 }
 
 // ColumnTypeDatabaseTypeName implement RowsColumnTypeDatabaseTypeName.
-func (rows *OCI8Rows) ColumnTypeDatabaseTypeName(i int) string {
-	param, err := rows.stmt.ociParamGet(C.ub4(i + 1))
-	if err != nil {
-		// TOFIX: return an error
-		return ""
-	}
-	defer C.OCIDescriptorFree(unsafe.Pointer(param), C.OCI_DTYPE_PARAM)
-
-	var dataType C.ub2 // external datatype of the column: https://docs.oracle.com/cd/E11882_01/appdev.112/e10646/oci03typ.htm#CEGIEEJI
-	_, err = rows.stmt.conn.ociAttrGet(param, unsafe.Pointer(&dataType), C.OCI_ATTR_DATA_TYPE)
-	if err != nil {
-		// TOFIX: return an error
+func (rows *Rows) ColumnTypeDatabaseTypeName(i int) string {
+	if len(rows.defines) < i+1 {
 		return ""
 	}
 
-	switch dataType {
+	switch rows.defines[i].dataType {
 	case C.SQLT_CHR:
 		return "SQLT_CHR"
 	case C.SQLT_NUM:
@@ -346,77 +303,40 @@ func (rows *OCI8Rows) ColumnTypeDatabaseTypeName(i int) string {
 	return ""
 }
 
-// ColumnTypeLength returns column length
-func (rows *OCI8Rows) ColumnTypeLength(i int) (length int64, ok bool) {
-	param, err := rows.stmt.ociParamGet(C.ub4(i + 1))
-	if err != nil {
-		return 0, false
-	}
-	defer C.OCIDescriptorFree(unsafe.Pointer(param), C.OCI_DTYPE_PARAM)
-
-	var dataSize C.ub4 // Maximum size in bytes of the external data for the column. This can affect conversion buffer sizes.
-	_, err = rows.stmt.conn.ociAttrGet(param, unsafe.Pointer(&dataSize), C.OCI_ATTR_DATA_SIZE)
-	if err != nil {
+// ColumnTypeLength is returning OCI_ATTR_DATA_SIZE, which is max data size in bytes.
+// Note this is not returing length of the column type, like the 20 in FLOAT(20), which is what is normally expected.
+// TODO: Should / can it be changed to return length of the column type?
+func (rows *Rows) ColumnTypeLength(i int) (int64, bool) {
+	if len(rows.defines) < i+1 {
 		return 0, false
 	}
 
-	return int64(dataSize), true
-}
-
-/*
-func (rows *OCI8Rows) ColumnTypePrecisionScale(i int) (precision, scale int64, ok bool) {
-	return 0, 0, false
-}
-*/
-
-// ColumnTypeNullable implement RowsColumnTypeNullable.
-func (rows *OCI8Rows) ColumnTypeNullable(i int) (nullable, ok bool) {
-	var isNull C.ub1 // returns 0 if null values are not permitted for the column
-	_, err := rows.stmt.ociAttrGet(unsafe.Pointer(&isNull), C.OCI_ATTR_IS_NULL)
-	if err != nil {
-		return false, false
+	if rows.defines[i].dataType == C.SQLT_AFC {
+		return int64(rows.defines[i].maxSize / 2), true
 	}
-	return isNull != 0, true
+	return int64(rows.defines[i].maxSize), true
 }
 
 // ColumnTypeScanType implement RowsColumnTypeScanType.
-func (rows *OCI8Rows) ColumnTypeScanType(i int) reflect.Type {
-	param, err := rows.stmt.ociParamGet(C.ub4(i + 1))
-	if err != nil {
-		// TOFIX: return an error
-		return reflect.SliceOf(reflect.TypeOf(""))
-	}
-	defer C.OCIDescriptorFree(unsafe.Pointer(param), C.OCI_DTYPE_PARAM)
-
-	var dataType C.ub2 // external datatype of the column: https://docs.oracle.com/cd/E11882_01/appdev.112/e10646/oci03typ.htm#CEGIEEJI
-	_, err = rows.stmt.conn.ociAttrGet(param, unsafe.Pointer(&dataType), C.OCI_ATTR_DATA_TYPE)
-	if err != nil {
-		// TOFIX: return an error
-		return reflect.SliceOf(reflect.TypeOf(""))
+func (rows *Rows) ColumnTypeScanType(i int) reflect.Type {
+	if len(rows.defines) < i+1 {
+		return typeNil
 	}
 
-	switch dataType {
-	case C.SQLT_CHR, C.SQLT_AFC, C.SQLT_VCS, C.SQLT_AVC:
-		return reflect.SliceOf(reflect.TypeOf(""))
-	case C.SQLT_BIN:
-		return reflect.SliceOf(reflect.TypeOf(byte(0)))
-	case C.SQLT_NUM:
-		return reflect.TypeOf(int64(0))
-	case C.SQLT_IBDOUBLE, C.SQLT_IBFLOAT:
-		return reflect.TypeOf(float64(0))
-	case C.SQLT_CLOB, C.SQLT_BLOB:
-		return reflect.SliceOf(reflect.TypeOf(byte(0)))
-	case C.SQLT_TIMESTAMP, C.SQLT_DAT:
-		return reflect.TypeOf(time.Time{})
-	case C.SQLT_TIMESTAMP_TZ, C.SQLT_TIMESTAMP_LTZ:
-		return reflect.TypeOf(time.Time{})
-	case C.SQLT_INTERVAL_DS:
-		return reflect.TypeOf(time.Duration(0))
-	case C.SQLT_INTERVAL_YM:
-		return reflect.TypeOf(time.Duration(0))
-	case C.SQLT_RDD: // rowid
-		return reflect.SliceOf(reflect.TypeOf(""))
+	switch rows.defines[i].dataType {
+	case C.SQLT_AFC, C.SQLT_CHR, C.SQLT_VCS, C.SQLT_AVC, C.SQLT_CLOB, C.SQLT_RDD:
+		return typeString
+	case C.SQLT_BIN, C.SQLT_BLOB:
+		return typeSliceByte
+	case C.SQLT_INT:
+		return typeInt64
+	case C.SQLT_BDOUBLE, C.SQLT_IBDOUBLE, C.SQLT_BFLOAT, C.SQLT_IBFLOAT, C.SQLT_NUM:
+		return typeFloat64
+	case C.SQLT_TIMESTAMP, C.SQLT_DAT, C.SQLT_TIMESTAMP_TZ, C.SQLT_TIMESTAMP_LTZ:
+		return typeTime
+	case C.SQLT_INTERVAL_DS, C.SQLT_INTERVAL_YM:
+		return typeInt64
 	}
 
-	return reflect.SliceOf(reflect.TypeOf(""))
+	return typeNil
 }

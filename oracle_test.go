@@ -43,7 +43,18 @@ func prepareOracleTestContainer(t *testing.T) (connString string, cleanup func()
 		}
 	}
 
-	connString = fmt.Sprintf("%s/%s@localhost:%s/xe", defaultUser, defaultPassword, resource.GetPort("1521/tcp"))
+	// If we are running these tests inside the cross-image build container,
+	// then we need to use the ip address and port of the oracle container.
+	// We can't use the container ip on Docker for Mac so default to localhost.
+	var url string
+	switch os.Getenv("RUN_IN_CONTAINER") {
+	case "":
+		url = resource.GetHostPort("1521/tcp")
+	default:
+		url = resource.Container.NetworkSettings.Networks["bridge"].IPAddress + ":" + "1521"
+	}
+
+	connString = fmt.Sprintf("%s/%s@%s/xe", defaultUser, defaultPassword, url)
 
 	// exponential backoff-retry
 	// the oracle container seems to take at least one minute to start, give us two
