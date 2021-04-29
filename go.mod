@@ -10,7 +10,7 @@ require (
 	github.com/hashicorp/vault/sdk v0.1.14-0.20210204230556-cf85a862b7c6
 	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d // indirect
 	github.com/kr/pretty v0.2.1 // indirect
-	github.com/mattn/go-oci8 v0.0.0-20190410054007-e00f23025626
+	github.com/mattn/go-oci8 v0.1.1
 	github.com/ory/dockertest v3.3.4+incompatible // indirect
 	github.com/tgulacsi/go v0.4.0
 	gopkg.in/ory-am/dockertest.v3 v3.3.4
