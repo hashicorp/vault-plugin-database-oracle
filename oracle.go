@@ -304,37 +304,86 @@ func splitQueries(rawQueries []string) (queries []string) {
 }
 
 func (o *Oracle) disconnectSession(db *sql.DB, username string) error {
+	err := o.disconnectFromCluster(db, username)
+	if err == nil {
+		return nil
+	}
+
+	return o.disconnectLocal(db, username)
+}
+
+func (o *Oracle) disconnectFromCluster(db *sql.DB, username string) error {
 	disconnectVars := map[string]string{
 		"username": username,
 	}
-	disconnectQuery := dbutil.QueryHelper(`SELECT sid, serial#, username FROM gv$session WHERE username = UPPER('{{username}}')`, disconnectVars)
-	disconnectStmt, err := db.Prepare(disconnectQuery)
+	query := dbutil.QueryHelper(`SELECT inst_id, sid, serial#, username FROM gv$session WHERE username = UPPER('{{username}}')`, disconnectVars)
+
+	disconnectStmt, err := db.Prepare(query)
 	if err != nil {
 		return err
 	}
 	defer disconnectStmt.Close()
-	if rows, err := disconnectStmt.Query(); err != nil {
+	rows, err := disconnectStmt.Query()
+	if err != nil {
 		return err
-	} else {
-		defer rows.Close()
-		for rows.Next() {
-			var sessionID, serialNumber int
-			var username sql.NullString
-			err = rows.Scan(&sessionID, &serialNumber, &username)
-			if err != nil {
-				return err
-			}
+	}
+	defer rows.Close()
 
-			killStatement := fmt.Sprintf(`ALTER SYSTEM KILL SESSION '%d,%d' IMMEDIATE`, sessionID, serialNumber)
-			_, err = db.Exec(killStatement)
-			if err != nil {
-				return err
-			}
-		}
-		err = rows.Err()
+	for rows.Next() {
+		var instID, sessionID, serialNumber int
+		var username sql.NullString
+		err = rows.Scan(&instID, &sessionID, &serialNumber, &username)
 		if err != nil {
 			return err
 		}
+
+		killStatement := fmt.Sprintf(`ALTER SYSTEM KILL SESSION '%d,%d,@%d' IMMEDIATE`, sessionID, serialNumber, instID)
+		_, err = db.Exec(killStatement)
+		if err != nil {
+			return err
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (o *Oracle) disconnectLocal(db *sql.DB, username string) error {
+	disconnectVars := map[string]string{
+		"username": username,
+	}
+	query := dbutil.QueryHelper(`SELECT sid, serial#, username FROM v$session WHERE username = UPPER('{{username}}')`, disconnectVars)
+
+	disconnectStmt, err := db.Prepare(query)
+	if err != nil {
+		return err
+	}
+	defer disconnectStmt.Close()
+	rows, err := disconnectStmt.Query()
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var sessionID, serialNumber int
+		var username sql.NullString
+		err = rows.Scan(&sessionID, &serialNumber, &username)
+		if err != nil {
+			return err
+		}
+
+		killStatement := fmt.Sprintf(`ALTER SYSTEM KILL SESSION '%d,%d' IMMEDIATE`, sessionID, serialNumber)
+		_, err = db.Exec(killStatement)
+		if err != nil {
+			return err
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		return err
 	}
 	return nil
 }

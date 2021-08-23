@@ -562,6 +562,71 @@ func TestUpdateUser_ChangePassword(t *testing.T) {
 	}
 }
 
+func TestDisconnectSession(t *testing.T) {
+	connURL, cleanup := prepareOracleTestContainer(t)
+	t.Cleanup(cleanup)
+
+	db := new()
+
+	initReq := dbplugin.InitializeRequest{
+		Config: map[string]interface{}{
+			"connection_url": connURL,
+		},
+		VerifyConnection: true,
+	}
+	dbtesting.AssertInitialize(t, db, initReq)
+
+	newUserReq := dbplugin.NewUserRequest{
+		UsernameConfig: dbplugin.UsernameMetadata{
+			DisplayName: "dispname",
+			RoleName:    "rolename",
+		},
+		Statements: dbplugin.Statements{
+			Commands: []string{
+				`CREATE USER {{username}} IDENTIFIED BY "{{password}}"`,
+				`GRANT CONNECT TO {{username}}`,
+				`GRANT CREATE SESSION TO {{username}}`,
+			},
+		},
+		RollbackStatements: dbplugin.Statements{},
+		Password:           "98aybEkldmDlawmMnv",
+	}
+
+	newUserResp := dbtesting.AssertNewUser(t, db, newUserReq)
+	username := newUserResp.Username
+	password := newUserReq.Password
+
+	_, _, link := orahlp.SplitDSN(connURL)
+	userURL := fmt.Sprintf("%s/%s@%s", username, password, link)
+
+	// Establish connection
+	conn, err := sql.Open("oci8", userURL)
+	if err != nil {
+		t.Fatalf("Failed to open initial connection: %s", err)
+	}
+	t.Cleanup(func() { conn.Close() })
+
+	err = conn.Ping()
+	if err != nil {
+		t.Fatalf("Failed to ping connection with dynamic user: %s", err)
+	}
+
+	deleteUserReq := dbplugin.DeleteUserRequest{
+		Username: username,
+		Statements: dbplugin.Statements{
+			Commands: []string{revocationSQL},
+		},
+	}
+
+	dbtesting.AssertDeleteUser(t, db, deleteUserReq)
+
+	// Connection should be dead
+	err = conn.Ping()
+	if err == nil {
+		t.Fatalf("Expected error after deleting user, but got none")
+	}
+}
+
 func testCredentialsExist(connString, username, password string) error {
 	// Log in with the new credentials
 	_, _, link := orahlp.SplitDSN(connString)
