@@ -1,5 +1,7 @@
 ## Unreleased
 
+## 0.4.2 (August 23, 2021)
+
 Improvements:
 * Improved session killing logic for RAC clusters & local databases [[GH-60](https://github.com/hashicorp/vault-plugin-database-oracle/pull/60)]
 
