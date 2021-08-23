@@ -309,12 +309,7 @@ func (o *Oracle) disconnectSession(db *sql.DB, username string) error {
 		return nil
 	}
 
-	err = o.disconnectLocal(db, username)
-	if err == nil {
-		return nil
-	}
-
-	return err
+	return o.disconnectLocal(db, username)
 }
 
 func (o *Oracle) disconnectFromCluster(db *sql.DB, username string) error {
