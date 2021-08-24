@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,15 +21,29 @@ import (
 const (
 	oracleTypeName = "oci8"
 
-	revocationSQL = `
-REVOKE CONNECT FROM {{username}};
-REVOKE CREATE SESSION FROM {{username}};
-DROP USER {{username}};
-`
-
 	defaultRotateCredsSql = `ALTER USER {{username}} IDENTIFIED BY "{{password}}"`
 
 	defaultUsernameTemplate = `{{ printf "V_%s_%s_%s_%s" (.DisplayName | truncate 8) (.RoleName | truncate 8) (random 20) (unix_time) | truncate 30 | uppercase | replace "-" "_" | replace "." "_" }}`
+)
+
+var (
+	defaultRevocationStatements = []string{
+		`REVOKE CONNECT FROM "{{username}}"`,
+		`REVOKE CREATE SESSION FROM "{{username}}"`,
+		`DROP USER "{{username}}"`,
+	}
+
+	defaultSessionRevocationStatements = []string{
+		`ALTER USER "{{username}}" ACCOUNT LOCK`,
+		`begin
+		  for x in ( select sid, serial# from gv$session where username="{{username}}" )
+		  loop
+		   execute immediate ( 'alter system kill session '''|| x.Sid || ',' || x.Serial# || ''' immediate' );
+		  end loop;
+		  dbms_lock.sleep(1);
+		end;`,
+		`DROP USER "{{username}}"`,
+	}
 )
 
 var _ dbplugin.Database = (*Oracle)(nil)
@@ -36,6 +51,9 @@ var _ dbplugin.Database = (*Oracle)(nil)
 type Oracle struct {
 	*connutil.SQLConnectionProducer
 	usernameProducer template.StringTemplate
+
+	splitStatements    bool
+	disconnectSessions bool
 }
 
 func New() (interface{}, error) {
@@ -65,6 +83,18 @@ func (o *Oracle) Initialize(ctx context.Context, req dbplugin.InitializeRequest)
 		usernameTemplate = defaultUsernameTemplate
 	}
 
+	splitStatements, err := coerceToBool(req.Config, "split_statements", true)
+	if err != nil {
+		return dbplugin.InitializeResponse{}, fmt.Errorf("failed to parse 'do_not_split_queries' field: %w", err)
+	}
+	o.splitStatements = splitStatements
+
+	disconnectSessions, err := coerceToBool(req.Config, "disconnect_sessions", true)
+	if err != nil {
+		return dbplugin.InitializeResponse{}, fmt.Errorf("failed to parse 'do_not_disconnect_sessions' field: %w", err)
+	}
+	o.disconnectSessions = disconnectSessions
+
 	up, err := template.NewTemplate(template.Template(usernameTemplate))
 	if err != nil {
 		return dbplugin.InitializeResponse{}, fmt.Errorf("unable to initialize username template: %w", err)
@@ -86,12 +116,23 @@ func (o *Oracle) Initialize(ctx context.Context, req dbplugin.InitializeRequest)
 	return resp, nil
 }
 
-func (o *Oracle) NewUser(ctx context.Context, req dbplugin.NewUserRequest) (dbplugin.NewUserResponse, error) {
-	statements := removeEmpty(req.Statements.Commands)
-	if len(statements) == 0 {
-		return dbplugin.NewUserResponse{}, dbutil.ErrEmptyCreationStatement
+func coerceToBool(m map[string]interface{}, key string, def bool) (bool, error) {
+	rawVal, ok := m[key]
+	if !ok {
+		return def, nil
 	}
 
+	switch val := rawVal.(type) {
+	case bool:
+		return val, nil
+	case string:
+		return strconv.ParseBool(val)
+	}
+
+	return false, fmt.Errorf("invalid type for key [%s]", key)
+}
+
+func (o *Oracle) NewUser(ctx context.Context, req dbplugin.NewUserRequest) (dbplugin.NewUserResponse, error) {
 	o.Lock()
 	defer o.Unlock()
 
@@ -105,7 +146,7 @@ func (o *Oracle) NewUser(ctx context.Context, req dbplugin.NewUserRequest) (dbpl
 		return dbplugin.NewUserResponse{}, fmt.Errorf("failed to get connection: %w", err)
 	}
 
-	err = newUser(ctx, db, username, req.Password, req.Expiration, req.Statements.Commands)
+	err = o.newUser(ctx, db, username, req.Password, req.Expiration, req.Statements.Commands)
 	if err != nil {
 		return dbplugin.NewUserResponse{}, err
 	}
@@ -116,19 +157,7 @@ func (o *Oracle) NewUser(ctx context.Context, req dbplugin.NewUserRequest) (dbpl
 	return resp, nil
 }
 
-func removeEmpty(strs []string) []string {
-	newStrs := []string{}
-	for _, str := range strs {
-		str = strings.TrimSpace(str)
-		if str == "" {
-			continue
-		}
-		newStrs = append(newStrs, str)
-	}
-	return newStrs
-}
-
-func newUser(ctx context.Context, db *sql.DB, username, password string, expiration time.Time, commands []string) error {
+func (o *Oracle) newUser(ctx context.Context, db *sql.DB, username, password string, expiration time.Time, commands []string) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("failed to start a transaction: %w", err)
@@ -136,24 +165,22 @@ func newUser(ctx context.Context, db *sql.DB, username, password string, expirat
 	// Effectively a no-op if the transaction commits successfully
 	defer tx.Rollback()
 
-	for _, stmt := range commands {
-		for _, query := range strutil.ParseArbitraryStringSlice(stmt, ";") {
-			query = strings.TrimSpace(query)
-			if len(query) == 0 {
-				continue
-			}
+	queries := o.splitQueries(commands)
+	if len(queries) == 0 {
+		return dbutil.ErrEmptyCreationStatement
+	}
 
-			m := map[string]string{
-				"username":   username,
-				"name":       username, // backwards compatibility
-				"password":   password,
-				"expiration": expiration.Format("2006-01-02 15:04:05-0700"),
-			}
+	for _, query := range queries {
+		m := map[string]string{
+			"username":   username,
+			"name":       username, // backwards compatibility
+			"password":   password,
+			"expiration": expiration.Format("2006-01-02 15:04:05-0700"),
+		}
 
-			err = dbtxn.ExecuteTxQuery(ctx, tx, m, query)
-			if err != nil {
-				return fmt.Errorf("failed to execute query: %w", err)
-			}
+		err = dbtxn.ExecuteTxQuery(ctx, tx, m, query)
+		if err != nil {
+			return fmt.Errorf("failed to execute query: %w", err)
 		}
 	}
 
@@ -195,7 +222,7 @@ func (o *Oracle) changeUserPassword(ctx context.Context, username string, newPas
 		"password": newPassword,
 	}
 
-	queries := splitQueries(rotateStatements)
+	queries := o.splitQueries(rotateStatements)
 	if len(queries) == 0 { // Extra check to protect against future changes
 		return errors.New("no rotation queries found")
 	}
@@ -215,11 +242,11 @@ func (o *Oracle) changeUserPassword(ctx context.Context, username string, newPas
 	// Effectively a no-op if the transaction commits successfully
 	defer tx.Rollback()
 
-	for _, rawQuery := range queries {
-		parsedQuery := dbutil.QueryHelper(rawQuery, variables)
+	for _, query := range queries {
+		parsedQuery := dbutil.QueryHelper(query, variables)
 		err := dbtxn.ExecuteTxQuery(ctx, tx, nil, parsedQuery)
 		if err != nil {
-			return fmt.Errorf("unable to execute query [%s]: %w", rawQuery, err)
+			return fmt.Errorf("unable to execute query [%s]: %w", query, err)
 		}
 	}
 
@@ -247,36 +274,44 @@ func (o *Oracle) DeleteUser(ctx context.Context, req dbplugin.DeleteUserRequest)
 	// Effectively a no-op if the transaction commits successfully
 	defer tx.Rollback()
 
-	err = o.disconnectSession(db, req.Username)
-	if err != nil {
-		return dbplugin.DeleteUserResponse{}, fmt.Errorf("failed to disconnect user %s: %w", req.Username, err)
+	if o.disconnectSessions {
+		err = o.disconnectSession(db, req.Username)
+		if err != nil {
+			return dbplugin.DeleteUserResponse{}, fmt.Errorf("failed to disconnect user %s: %w", req.Username, err)
+		}
 	}
 
-	revocationStatements := req.Statements.Commands
+	revocationStatements := o.getRevocationStatements(req.Statements.Commands)
 	if len(revocationStatements) == 0 {
-		revocationStatements = []string{revocationSQL}
+		return dbplugin.DeleteUserResponse{}, fmt.Errorf("empty revocation statements")
 	}
 
 	// We can't use a transaction here, because Oracle treats DROP USER as a DDL statement, which commits immediately.
-	for _, stmt := range revocationStatements {
-		for _, query := range strutil.ParseArbitraryStringSlice(stmt, ";") {
-			query = strings.TrimSpace(query)
-			if len(query) == 0 {
-				continue
-			}
+	for _, query := range revocationStatements {
+		m := map[string]string{
+			"username": req.Username,
+			"name":     req.Username, // backwards compatibility
+		}
 
-			m := map[string]string{
-				"username": req.Username,
-				"name":     req.Username, // backwards compatibility
-			}
-
-			if err := dbtxn.ExecuteTxQuery(ctx, tx, m, query); err != nil {
-				return dbplugin.DeleteUserResponse{}, fmt.Errorf("failed to execute query: %w", err)
-			}
+		if err := dbtxn.ExecuteTxQuery(ctx, tx, m, query); err != nil {
+			return dbplugin.DeleteUserResponse{}, fmt.Errorf("failed to execute query: %w", err)
 		}
 	}
 
 	return dbplugin.DeleteUserResponse{}, nil
+}
+
+func (o *Oracle) getRevocationStatements(statements []string) []string {
+	if len(statements) > 0 {
+		statements = o.splitQueries(statements)
+		return statements
+	}
+
+	if !o.splitStatements || !o.disconnectSessions {
+		return defaultSessionRevocationStatements
+	} else {
+		return defaultRevocationStatements
+	}
 }
 
 func (o *Oracle) Type() (string, error) {
@@ -289,7 +324,20 @@ func (o *Oracle) secretValues() map[string]string {
 	}
 }
 
-func splitQueries(rawQueries []string) (queries []string) {
+// splitQueries conditionally splits the list of commands on semi-colons. If `doNotSplitQueries` is specified, this
+// will return the provided slice of commands without altering them
+func (o *Oracle) splitQueries(rawQueries []string) (queries []string) {
+	if !o.splitStatements {
+		for _, rawQ := range rawQueries {
+			newQ := strings.TrimSpace(rawQ)
+			if newQ == "" {
+				continue
+			}
+			queries = append(queries, newQ)
+		}
+		return queries
+	}
+
 	for _, rawQ := range rawQueries {
 		split := strutil.ParseArbitraryStringSlice(rawQ, ";")
 		for _, newQ := range split {

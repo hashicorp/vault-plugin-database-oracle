@@ -162,9 +162,9 @@ func TestOracle_NewUser(t *testing.T) {
 			displayName: "token",
 			roleName:    "myrolenamewithextracharacters",
 			creationStmts: []string{`
-				CREATE USER {{username}} IDENTIFIED BY "{{password}}";
-				GRANT CONNECT TO {{username}};
-				GRANT CREATE SESSION TO {{username}};`,
+				CREATE USER "{{username}}" IDENTIFIED BY "{{password}}";
+				GRANT CONNECT TO "{{username}}";
+				GRANT CREATE SESSION TO "{{username}}";`,
 			},
 			usernameTemplate:      "{{random 8 | uppercase}}_{{.RoleName | uppercase | truncate 10}}_{{.DisplayName | sha256 | uppercase | truncate 10}}",
 			expectErr:             false,
@@ -306,9 +306,9 @@ func TestOracle_RevokeUser(t *testing.T) {
 		},
 		"username revoke": {
 			deleteStatements: []string{`
-				REVOKE CONNECT FROM {{username}};
-				REVOKE CREATE SESSION FROM {{username}};
-				DROP USER {{username}};`,
+				REVOKE CONNECT FROM "{{username}}";
+				REVOKE CREATE SESSION FROM "{{username}}";
+				DROP USER "{{username}}";`,
 			},
 		},
 		"default revoke": {},
@@ -363,65 +363,77 @@ func TestOracle_RevokeUser(t *testing.T) {
 
 func TestSplitQueries(t *testing.T) {
 	type testCase struct {
+		splitStatements bool
+
 		input    []string
 		expected []string
 	}
 
 	tests := map[string]testCase{
 		"nil input": {
-			input:    nil,
-			expected: nil,
+			splitStatements: true,
+			input:           nil,
+			expected:        nil,
 		},
 		"empty input": {
-			input:    []string{},
-			expected: nil,
+			splitStatements: true,
+			input:           []string{},
+			expected:        nil,
 		},
 		"empty string": {
-			input:    []string{""},
-			expected: nil,
+			splitStatements: true,
+			input:           []string{""},
+			expected:        nil,
 		},
 		"string with only semicolon": {
-			input:    []string{";"},
-			expected: nil,
+			splitStatements: true,
+			input:           []string{";"},
+			expected:        nil,
 		},
 		"only semicolons": {
-			input:    []string{";;;;"},
-			expected: nil,
+			splitStatements: true,
+			input:           []string{";;;;"},
+			expected:        nil,
 		},
 		"single input": {
+			splitStatements: true,
 			input: []string{
-				"alter user {{username}} identified by {{password}}",
+				`alter user "{{username}}" identified by {{password}}`,
 			},
 			expected: []string{
-				"alter user {{username}} identified by {{password}}",
+				`alter user "{{username}}" identified by {{password}}`,
 			},
 		},
 		"single input with trailing semicolon": {
+			splitStatements: true,
 			input: []string{
-				"alter user {{username}} identified by {{password}};",
+				`alter user "{{username}}" identified by {{password}};`,
 			},
 			expected: []string{
-				"alter user {{username}} identified by {{password}}",
+				`alter user "{{username}}" identified by {{password}}`,
 			},
 		},
 		"single input with leading semicolon": {
+			splitStatements: true,
 			input: []string{
-				";alter user {{username}} identified by {{password}}",
+				`;alter user "{{username}}" identified by {{password}}`,
 			},
 			expected: []string{
-				"alter user {{username}} identified by {{password}}",
+				`alter user "{{username}}" identified by {{password}}`,
 			},
 		},
 		"multiple queries in single line": {
+			splitStatements: true,
 			input: []string{
-				"alter user {{username}} identified by {{password}};do something with {{username}} {{password}};",
+				`alter user "{{username}}" identified by {{password}};do something with "{{username}}" {{password}};`,
 			},
 			expected: []string{
-				"alter user {{username}} identified by {{password}}",
-				"do something with {{username}} {{password}}",
+				`alter user "{{username}}" identified by {{password}}`,
+				`do something with "{{username}}" {{password}}`,
 			},
 		},
 		"multiple queries in multiple lines": {
+			splitStatements: true,
 			input: []string{
 				"foo;bar;baz",
 				"qux ; quux ; quuz",
@@ -435,14 +447,31 @@ func TestSplitQueries(t *testing.T) {
 				"quuz",
 			},
 		},
+		"do not split statements": {
+			splitStatements: false,
+			input: []string{
+				"foo",
+				"foo;bar;baz",
+				"", // Empty strings are removed
+				"qux ; quux ; quuz",
+			},
+			expected: []string{
+				"foo",
+				"foo;bar;baz",
+				"qux ; quux ; quuz",
+			},
+		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			actual := splitQueries(test.input)
+			db := &Oracle{
+				splitStatements: test.splitStatements,
+			}
+			actual := db.splitQueries(test.input)
 
 			if !reflect.DeepEqual(actual, test.expected) {
-				t.FailNow()
+				t.Fatalf("Actual: %s\nExpected: %s", actual, test.expected)
 			}
 		})
 	}
@@ -539,7 +568,7 @@ func TestUpdateUser_ChangePassword(t *testing.T) {
 				`CREATE USER "{{username}}" IDENTIFIED BY "{{password}}"`,
 				`GRANT ALL PRIVILEGES TO {{username}}`,
 			}
-			err = newUser(ctx, sqlDB, username, initialPassword, time.Now().Add(1*time.Minute), createCommands)
+			err = db.newUser(ctx, sqlDB, username, initialPassword, time.Now().Add(1*time.Minute), createCommands)
 			if err != nil {
 				t.Fatalf("failed to create user: %s", err)
 			}
@@ -583,9 +612,9 @@ func TestDisconnectSession(t *testing.T) {
 		},
 		Statements: dbplugin.Statements{
 			Commands: []string{
-				`CREATE USER {{username}} IDENTIFIED BY "{{password}}"`,
-				`GRANT CONNECT TO {{username}}`,
-				`GRANT CREATE SESSION TO {{username}}`,
+				`CREATE USER "{{username}}" IDENTIFIED BY "{{password}}"`,
+				`GRANT CONNECT TO "{{username}}"`,
+				`GRANT CREATE SESSION TO "{{username}}"`,
 			},
 		},
 		RollbackStatements: dbplugin.Statements{},
@@ -595,6 +624,12 @@ func TestDisconnectSession(t *testing.T) {
 	newUserResp := dbtesting.AssertNewUser(t, db, newUserReq)
 	username := newUserResp.Username
 	password := newUserReq.Password
+
+	if username == "" {
+		t.Fatalf("Missing username")
+	}
+
+	assertCredentialsExist(t, connURL, username, password)
 
 	_, _, link := orahlp.SplitDSN(connURL)
 	userURL := fmt.Sprintf("%s/%s@%s", username, password, link)
@@ -614,7 +649,7 @@ func TestDisconnectSession(t *testing.T) {
 	deleteUserReq := dbplugin.DeleteUserRequest{
 		Username: username,
 		Statements: dbplugin.Statements{
-			Commands: []string{revocationSQL},
+			Commands: defaultRevocationStatements,
 		},
 	}
 
