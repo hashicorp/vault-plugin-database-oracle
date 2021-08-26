@@ -28,13 +28,13 @@ const (
 
 var (
 	defaultRevocationStatements = []string{
-		`REVOKE CONNECT FROM "{{username}}"`,
-		`REVOKE CREATE SESSION FROM "{{username}}"`,
-		`DROP USER "{{username}}"`,
+		`REVOKE CONNECT FROM {{username}}`,
+		`REVOKE CREATE SESSION FROM {{username}}`,
+		`DROP USER {{username}}`,
 	}
 
 	defaultSessionRevocationStatements = []string{
-		`ALTER USER "{{username}}" ACCOUNT LOCK`,
+		`ALTER USER {{username}} ACCOUNT LOCK`,
 		`begin
 		  for x in ( select sid, serial# from gv$session where username="{{username}}" )
 		  loop
@@ -42,7 +42,7 @@ var (
 		  end loop;
 		  dbms_lock.sleep(1);
 		end;`,
-		`DROP USER "{{username}}"`,
+		`DROP USER {{username}}`,
 	}
 )
 
@@ -326,8 +326,9 @@ func (o *Oracle) secretValues() map[string]string {
 
 // splitQueries conditionally splits the list of commands on semi-colons. If `doNotSplitQueries` is specified, this
 // will return the provided slice of commands without altering them
-func (o *Oracle) splitQueries(rawQueries []string) (queries []string) {
+func (o *Oracle) splitQueries(rawQueries []string) []string {
 	if !o.splitStatements {
+		queries := []string{}
 		for _, rawQ := range rawQueries {
 			newQ := strings.TrimSpace(rawQ)
 			if newQ == "" {
@@ -338,6 +339,7 @@ func (o *Oracle) splitQueries(rawQueries []string) (queries []string) {
 		return queries
 	}
 
+	queries := []string{}
 	for _, rawQ := range rawQueries {
 		split := strutil.ParseArbitraryStringSlice(rawQ, ";")
 		for _, newQ := range split {
