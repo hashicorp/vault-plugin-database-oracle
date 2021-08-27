@@ -361,7 +361,7 @@ func TestOracle_RevokeUser(t *testing.T) {
 	}
 }
 
-func TestSplitQueries(t *testing.T) {
+func TestParseStatements(t *testing.T) {
 	type testCase struct {
 		splitStatements bool
 
@@ -373,27 +373,27 @@ func TestSplitQueries(t *testing.T) {
 		"nil input": {
 			splitStatements: true,
 			input:           nil,
-			expected:        nil,
+			expected:        []string{},
 		},
 		"empty input": {
 			splitStatements: true,
 			input:           []string{},
-			expected:        nil,
+			expected:        []string{},
 		},
 		"empty string": {
 			splitStatements: true,
 			input:           []string{""},
-			expected:        nil,
+			expected:        []string{},
 		},
 		"string with only semicolon": {
 			splitStatements: true,
 			input:           []string{";"},
-			expected:        nil,
+			expected:        []string{},
 		},
 		"only semicolons": {
 			splitStatements: true,
 			input:           []string{";;;;"},
-			expected:        nil,
+			expected:        []string{},
 		},
 		"single input": {
 			splitStatements: true,
