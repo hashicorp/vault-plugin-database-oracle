@@ -468,7 +468,7 @@ func TestSplitQueries(t *testing.T) {
 			db := &Oracle{
 				splitStatements: test.splitStatements,
 			}
-			actual := db.splitQueries(test.input)
+			actual := db.parseStatements(test.input)
 
 			if !reflect.DeepEqual(actual, test.expected) {
 				t.Fatalf("Actual: %s\nExpected: %s", actual, test.expected)

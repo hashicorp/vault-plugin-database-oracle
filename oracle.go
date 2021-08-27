@@ -85,13 +85,13 @@ func (o *Oracle) Initialize(ctx context.Context, req dbplugin.InitializeRequest)
 
 	splitStatements, err := coerceToBool(req.Config, "split_statements", true)
 	if err != nil {
-		return dbplugin.InitializeResponse{}, fmt.Errorf("failed to parse 'do_not_split_queries' field: %w", err)
+		return dbplugin.InitializeResponse{}, fmt.Errorf("failed to parse 'split_statements' field: %w", err)
 	}
 	o.splitStatements = splitStatements
 
 	disconnectSessions, err := coerceToBool(req.Config, "disconnect_sessions", true)
 	if err != nil {
-		return dbplugin.InitializeResponse{}, fmt.Errorf("failed to parse 'do_not_disconnect_sessions' field: %w", err)
+		return dbplugin.InitializeResponse{}, fmt.Errorf("failed to parse 'disconnect_sessions' field: %w", err)
 	}
 	o.disconnectSessions = disconnectSessions
 
@@ -165,12 +165,12 @@ func (o *Oracle) newUser(ctx context.Context, db *sql.DB, username, password str
 	// Effectively a no-op if the transaction commits successfully
 	defer tx.Rollback()
 
-	queries := o.splitQueries(commands)
-	if len(queries) == 0 {
+	statements := o.parseStatements(commands)
+	if len(statements) == 0 {
 		return dbutil.ErrEmptyCreationStatement
 	}
 
-	for _, query := range queries {
+	for _, query := range statements {
 		m := map[string]string{
 			"username":   username,
 			"name":       username, // backwards compatibility
@@ -222,9 +222,9 @@ func (o *Oracle) changeUserPassword(ctx context.Context, username string, newPas
 		"password": newPassword,
 	}
 
-	queries := o.splitQueries(rotateStatements)
-	if len(queries) == 0 { // Extra check to protect against future changes
-		return errors.New("no rotation queries found")
+	statements := o.parseStatements(rotateStatements)
+	if len(statements) == 0 { // Extra check to protect against future changes
+		return errors.New("no rotation statements found")
 	}
 
 	o.Lock()
@@ -242,7 +242,7 @@ func (o *Oracle) changeUserPassword(ctx context.Context, username string, newPas
 	// Effectively a no-op if the transaction commits successfully
 	defer tx.Rollback()
 
-	for _, query := range queries {
+	for _, query := range statements {
 		parsedQuery := dbutil.QueryHelper(query, variables)
 		err := dbtxn.ExecuteTxQuery(ctx, tx, nil, parsedQuery)
 		if err != nil {
@@ -252,7 +252,7 @@ func (o *Oracle) changeUserPassword(ctx context.Context, username string, newPas
 
 	err = tx.Commit()
 	if err != nil {
-		return fmt.Errorf("unable to commit queries: %w", err)
+		return fmt.Errorf("unable to commit statements: %w", err)
 	}
 
 	return nil
@@ -303,7 +303,7 @@ func (o *Oracle) DeleteUser(ctx context.Context, req dbplugin.DeleteUserRequest)
 
 func (o *Oracle) getRevocationStatements(statements []string) []string {
 	if len(statements) > 0 {
-		statements = o.splitQueries(statements)
+		statements = o.parseStatements(statements)
 		return statements
 	}
 
@@ -324,33 +324,33 @@ func (o *Oracle) secretValues() map[string]string {
 	}
 }
 
-// splitQueries conditionally splits the list of commands on semi-colons. If `doNotSplitQueries` is specified, this
+// parseStatements conditionally splits the list of commands on semi-colons. If `split_statements` is true, this
 // will return the provided slice of commands without altering them
-func (o *Oracle) splitQueries(rawQueries []string) []string {
+func (o *Oracle) parseStatements(rawStatements []string) []string {
 	if !o.splitStatements {
-		queries := []string{}
-		for _, rawQ := range rawQueries {
+		statements := []string{}
+		for _, rawQ := range rawStatements {
 			newQ := strings.TrimSpace(rawQ)
 			if newQ == "" {
 				continue
 			}
-			queries = append(queries, newQ)
+			statements = append(statements, newQ)
 		}
-		return queries
+		return statements
 	}
 
-	queries := []string{}
-	for _, rawQ := range rawQueries {
+	statements := []string{}
+	for _, rawQ := range rawStatements {
 		split := strutil.ParseArbitraryStringSlice(rawQ, ";")
 		for _, newQ := range split {
 			newQ = strings.TrimSpace(newQ)
 			if newQ == "" {
 				continue
 			}
-			queries = append(queries, newQ)
+			statements = append(statements, newQ)
 		}
 	}
-	return queries
+	return statements
 }
 
 func (o *Oracle) disconnectSession(db *sql.DB, username string) error {
