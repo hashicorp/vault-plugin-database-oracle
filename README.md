@@ -71,8 +71,8 @@ $ vault write sys/plugins/catalog/database/vault-plugin-database-oracle \
 
 $ vault secrets enable database
 
-$ vault write database/config/oracle plugin_name \
-    vault-plugin-database-oracle \
+$ vault write database/config/oracle \
+    plugin_name=vault-plugin-database-oracle \
     allowed_roles="*" \
     connection_url='{{username}}/{{password}}@//url.to.oracle.db:1521/oracle_service' \
     username='vaultadmin' \
