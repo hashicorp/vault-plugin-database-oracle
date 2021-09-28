@@ -36,9 +36,9 @@ var (
 	defaultSessionRevocationStatements = []string{
 		`ALTER USER {{username}} ACCOUNT LOCK`,
 		`begin
-		  for x in ( select sid, serial# from gv$session where username="{{username}}" )
+		  for x in ( select inst_id, sid, serial# from gv$session where username="{{username}}" )
 		  loop
-		   execute immediate ( 'alter system kill session '''|| x.Sid || ',' || x.Serial# || ''' immediate' );
+		   execute immediate ( 'alter system kill session '''|| x.Sid || ',' || x.Serial# || '@' || x.inst_id ''' immediate' );
 		  end loop;
 		  dbms_lock.sleep(1);
 		end;`,
