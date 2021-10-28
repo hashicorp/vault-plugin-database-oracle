@@ -7,7 +7,7 @@ THIS_FILE := $(lastword $(MAKEFILE_LIST))
 TEST?=$$(go list ./... | grep -v /vendor/ | grep -v /integ)
 GOFMT_FILES?=$$(find . -name '*.go' | grep -v vendor)
 EXTERNAL_TOOLS=\
-	github.com/mitchellh/gox 
+	github.com/mitchellh/gox
 
 default: dev
 
@@ -68,7 +68,7 @@ test-in-container: build-cross-image
 
 # when running in CirleCI - convert test results to junit xml (for storage)
 test-ci: fmtcheck generate
-	go get -x github.com/jstemmer/go-junit-report
+	go install github.com/jstemmer/go-junit-report@v0.9.1
 	CGO_ENABLED=1 go test $(TEST) -timeout=20m -parallel=4 \
 	-v | tee test-results/go/go-test-report.raw
 	go-junit-report < test-results/go/go-test-report.raw > test-results/go/go-test-report.xml
