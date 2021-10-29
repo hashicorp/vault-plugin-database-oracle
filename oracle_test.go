@@ -12,8 +12,8 @@ import (
 
 	dbplugin "github.com/hashicorp/vault/sdk/database/dbplugin/v5"
 	dbtesting "github.com/hashicorp/vault/sdk/database/dbplugin/v5/testing"
+	"github.com/ory/dockertest/v3"
 	"github.com/tgulacsi/go/orahlp"
-	dockertest "gopkg.in/ory-am/dockertest.v3"
 )
 
 const (
