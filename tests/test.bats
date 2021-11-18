@@ -179,7 +179,6 @@ teardown_file(){
 }
 
 @test "POST /database/config/:name - write oracle connection config" {
-  log "VAULT_NAMESPACE: $VAULT_NAMESPACE"
   run vault write --namespace=ns1 database/config/$DB_NAME \
     plugin_name=vault-plugin-database-oracle \
     connection_url="{{username}}/{{password}}@localhost:1521/ORCLPDB1" \
@@ -298,7 +297,6 @@ teardown_file(){
   # create static user
   docker_sqlplus_admin "CREATE USER $STATIC_USER IDENTIFIED BY \"$STATIC_PASSWORD\";"
   docker_sqlplus_admin "GRANT CONNECT TO $STATIC_USER;"
-  # docker_sqlplus_admin 'GRANT CREATE SESSION TO $STATICUSER;'
 
   # Try the static password directly
   run docker_sqlplus "select 1 from dual;" "$STATIC_USER" "$STATIC_PASSWORD"
