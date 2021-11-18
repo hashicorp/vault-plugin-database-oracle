@@ -20,11 +20,11 @@ VROLE="my-role"
 VAULT_USER="vaultadmin"
 STATIC_USER="staticuser1"
 STATIC_PASSWORD="staticpassword1"
-DOCKER_VOLUME_MNT=${DOCKER_VOLUME_MNT:-~/dev/oracle/data/}
 
 # error if these are not set
-[ ${VAULT_LICENSE?} ]
-[ ${PLUGIN_DIR?} ]
+[ ${VAULT_LICENSE:?} ]
+[ ${PLUGIN_DIR:?} ]
+[ ${DOCKER_VOLUME_MNT:?} ]
 
 # jq is required
 command -v jq >/dev/null 2>&1 || { log "jq is required for this test."; exit 1; }

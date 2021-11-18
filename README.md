@@ -75,6 +75,20 @@ Additionally, there are some [Bats](https://github.com/bats-core/bats-core) test
 Vault logs will be written to `VAULT_OUTFILE`. Bats test logs will be written to
 `SETUP_TEARDOWN_OUTFILE`.
 
+#### Run Bats tests
+
+```
+# export env vars
+export VAULT_LICENSE="12345"
+export PLUGIN_DIR="~/dev/plugins"
+export DOCKER_VOLUME_MNT="~/dev/plugins/oracle/data"
+
+# run tests
+cd tests/
+./test.bats
+```
+
+
 ## Installation
 
 **See [Case Sensitivity](#case-sensitivity) for important information about custom creation & rotation statements.**
