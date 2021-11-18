@@ -47,7 +47,33 @@ Cflags: -I${includedir}
 
 Then, `git clone` this repository into your `$GOPATH` and `go build -o vault-plugin-database-oracle ./plugin` from the project directory.
 
+## Tests
+
 `make test` will run a basic test suite against a Docker version of Oracle.
+
+Additionally, there are some [Bats](https://github.com/bats-core/bats-core) tests in the `tests` directory.
+
+#### Prerequisites
+
+- [Install Bats Core](https://bats-core.readthedocs.io/en/stable/installation.html)
+- Docker
+- A vault binary in the `tests` directory.
+
+#### Setup
+
+- Oracle plugin is built and saved in `PLUGIN_DIR`
+    - Export `PLUGIN_DIR` containing the path to the oracle plugin binary.
+- Oracle db docker image has been built
+- Oracle db data path is set in `DOCKER_VOLUME_MNT`. i.e. `~/dev/oracle/data`
+    - If you do not use a persistent store for Oracle data, the amount of time
+      the container will need to start up will be dramatically longer. Using
+      the volume mount skips a lot of first-time setup steps.
+- Export `VAULT_LICENSE`. This test will only work for enterprise images.
+
+#### Logs
+
+Vault logs will be written to `VAULT_OUTFILE`. Bats test logs will be written to
+`SETUP_TEARDOWN_OUTFILE`.
 
 ## Installation
 
@@ -71,8 +97,8 @@ $ vault write sys/plugins/catalog/database/vault-plugin-database-oracle \
 
 $ vault secrets enable database
 
-$ vault write database/config/oracle plugin_name \
-    vault-plugin-database-oracle \
+$ vault write database/config/oracle \
+    plugin_name=vault-plugin-database-oracle \
     allowed_roles="*" \
     connection_url='{{username}}/{{password}}@//url.to.oracle.db:1521/oracle_service' \
     username='vaultadmin' \

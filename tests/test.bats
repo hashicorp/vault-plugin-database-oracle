@@ -2,7 +2,7 @@
 
 # Prerequisites
 #
-# 1. Install Bats Core: https://bats-core.readthedocs.io/en/stable/installation.html#homebrew
+# 1. Install Bats Core: https://bats-core.readthedocs.io/en/stable/installation.html
 # 2. Docker
 
 # Setup
@@ -10,9 +10,8 @@
 # 1. Oracle plugin is built and registered in vault
 # 2. Oracle db docker image has been built
 # 3. Oracle db data path is set in DOCKER_VOLUME_MNT
-# 4. Export VAULT_IMAGE to test the image of your choice.
-# 5. Export VAULT_LICENSE. This test will only work for enterprise images.
-# 6. Export PLUGIN_DIR containing the path to the oracle plugin binary.
+# 4. Export VAULT_LICENSE. This test will only work for enterprise images.
+# 5. Export PLUGIN_DIR containing the path to the oracle plugin binary.
 
 # Logs
 #
