@@ -185,13 +185,34 @@ teardown_file(){
     allowed_roles="*" \
     username="$VAULT_USER" \
     password="$VPASS" \
-    max_conneciton_lifetime="30s"
+    max_connection_lifetime="30s"
   assert_status 0
 }
 
 @test "GET /database/config/:name - read oracle connection config" {
-  run vault read --namespace=ns1 database/config/$DB_NAME
+  # local -r CREDS="$(run vault read --namespace=ns1 database/config/$DB_NAME)"
+  run vault read --namespace=ns1 -format=json database/config/$DB_NAME
   assert_status 0
+
+  data=$(echo "$output" | jq -r .data)
+  local -r expected_output=$(cat - <<EOF
+{
+  "allowed_roles": [
+    "*"
+  ],
+  "connection_details": {
+    "connection_url": "{{username}}/{{password}}@localhost:1521/ORCLPDB1",
+    "max_connection_lifetime": "30s",
+    "username": "vaultadmin"
+  },
+  "password_policy": "",
+  "plugin_name": "vault-plugin-database-oracle",
+  "root_credentials_rotate_statements": []
+}
+EOF
+)
+  [[ "${data}" == "${expected_output}" ]] || \
+    log_err "bad output: expect:\n${expected_output}\ngot:\n${data}"
 }
 
 @test "LIST /database/config - list configs" {
@@ -206,7 +227,7 @@ teardown_file(){
     allowed_roles="*" \
     username="$VAULT_USER" \
     password="$VPASS" \
-    max_conneciton_lifetime="30s"
+    max_connection_lifetime="30s"
   assert_status 0
 
   run vault delete --namespace=ns1 database/config/delete-me
@@ -254,8 +275,12 @@ teardown_file(){
 }
 
 @test "GET /database/creds/:name - generate dynamic credentials" {
-  run vault read --namespace=ns1 database/creds/$VROLE
+  run vault read --namespace=ns1 -format=json database/creds/$VROLE
   assert_status 0
+
+  local -r lease_duration=$(echo "$output" | jq -r .lease_duration)
+  [[ "${lease_duration}" == "3600" ]] || \
+    log_err "bad output: expect:\n${expected_output}\ngot:\n${lease_duration}"
 }
 
 @test "Execute sqlplus query with dynamic credentials" {
