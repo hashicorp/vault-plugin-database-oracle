@@ -190,7 +190,6 @@ teardown_file(){
 }
 
 @test "GET /database/config/:name - read oracle connection config" {
-  # local -r CREDS="$(run vault read --namespace=ns1 database/config/$DB_NAME)"
   run vault read --namespace=ns1 -format=json database/config/$DB_NAME
   assert_status 0
 
