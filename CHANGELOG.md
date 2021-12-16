@@ -1,4 +1,11 @@
-## Unreleased
+## 0.5.1 (December 16, 2021)
+
+* Remove vendored dependencies in the repository. This change should be transparent for plugin uses. [[GH-69](https://github.com/hashicorp/vault-plugin-database-oracle/pull/69)]
+
+## 0.5.0 (December 16, 2021)
+
+Features:
+* Add ability to fully customize revocation statements [[GH-62](https://github.com/hashicorp/vault-plugin-database-oracle/pull/62)]
 
 ## 0.4.2 (August 23, 2021)
 
