@@ -56,7 +56,7 @@ type Oracle struct {
 	disconnectSessions bool
 }
 
-func New() (interface{}, error) {
+func New() (dbplugin.Database, error) {
 	db := new()
 	// Wrap the plugin with middleware to sanitize errors
 	dbType := dbplugin.NewDatabaseErrorSanitizerMiddleware(db, db.secretValues)
