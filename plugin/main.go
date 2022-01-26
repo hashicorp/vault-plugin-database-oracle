@@ -23,7 +23,7 @@ func main() {
 
 // Run instantiates an Oracle object, and runs the RPC server for the plugin
 func Run() error {
-	dbplugin.ServeMultiplex(plugin.New)
+	dbplugin.ServeMultiplex(plugin.NewWithMultiplex)
 
 	return nil
 }
