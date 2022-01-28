@@ -56,13 +56,6 @@ type Oracle struct {
 	disconnectSessions bool
 }
 
-func NewWithMultiplex() (dbplugin.Database, error) {
-	db := new()
-	// Wrap the plugin with middleware to sanitize errors
-	dbType := dbplugin.NewDatabaseErrorSanitizerMiddleware(db, db.secretValues)
-	return dbType, nil
-}
-
 func New() (interface{}, error) {
 	db := new()
 	// Wrap the plugin with middleware to sanitize errors
