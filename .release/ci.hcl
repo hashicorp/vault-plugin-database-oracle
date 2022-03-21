@@ -9,7 +9,7 @@ project "vault-plugin-database-oracle" {
   github {
     organization = "hashicorp"
     repository = "vault-plugin-database-oracle"
-    release_branches = ["main", "VAULT-5038-convert-to-crt"]
+    release_branches = ["main"]
   }
 }
 
