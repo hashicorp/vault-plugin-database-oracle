@@ -55,9 +55,21 @@ event "security-scan-binaries" {
   }
 }
 
+event "sign" {
+  depends = ["security-scan-binaries"]
+  action "sign" {
+    organization = "hashicorp"
+    repository = "crt-workflows-common"
+    workflow = "sign"
+  }
+
+  notification {
+    on = "fail"
+  }
+}
 
 event "verify" {
-  depends = ["security-scan-binaries"]
+  depends = ["sign"]
   action "verify" {
     organization = "hashicorp"
     repository = "crt-workflows-common"
