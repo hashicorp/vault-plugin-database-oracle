@@ -1,6 +1,3 @@
-# This Dockerfile contains multiple targets.
-# Use 'docker build --target=<name> .' to build one.
-
 FROM docker.mirror.hashicorp.services/oraclelinux:7 AS cross-image
 
 RUN yum-config-manager --add-repo http://yum.oracle.com/repo/OracleLinux/OL7/oracle/instantclient/x86_64
@@ -48,22 +45,6 @@ RUN mkdir -p test-results/go
 RUN make bootstrap
 
 CMD echo "Please specify a command, e.g. 'make bin' or 'make test-ci'"
-
-
-# Default release image.
-# -----------------------------------
-FROM docker.mirror.hashicorp.services/alpine:3.15.0 AS release
-
-ARG PRODUCT_VERSION
-ARG PRODUCT_REVISION
-ARG PRODUCT_NAME=vault-plugin-database-oracle
-ARG TARGETOS TARGETARCH
-
-LABEL version=$PRODUCT_VERSION
-LABEL revision=$PRODUCT_REVISION
-
-COPY dist/$TARGETOS/$TARGETARCH/vault-plugin-database-oracle /bin/
-ENTRYPOINT [ "/bin/vault-plugin-database-oracle" ]
 
 
 # ===================================
