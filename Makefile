@@ -41,11 +41,11 @@ bootstrap:
 		go install $$tool; \
 	done
 
-# the following targets are run in CircleCI as part of the build/test jobs
+# the following targets are run in GitHub Actions as part of the build/test jobs
 
 # build the build image
 build-cross-image:
-	docker build -t cross-image:latest .
+	docker build -t cross-image:latest --target cross-image .
 
 # use the pre-built image (with dependencies set-up) to build the binary
 # by default this will result in the linux_amd64 binary being written to - pkg/bin/linux_amd64/
