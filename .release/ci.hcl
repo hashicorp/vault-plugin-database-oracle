@@ -9,7 +9,17 @@ project "vault-plugin-database-oracle" {
   github {
     organization = "hashicorp"
     repository = "vault-plugin-database-oracle"
-    release_branches = ["main"]
+    release_branches = [
+        "main",
+        "release/vault-1.4.x",
+        "release/vault-1.5.x",
+        "release/vault-1.6.x",
+        "release/vault-1.7.x",
+        "release/vault-1.8.x",
+        "release/vault-1.9.x",
+        "release/vault-1.10.x",
+        "release/vault-1.11.x",
+    ]
   }
 }
 
