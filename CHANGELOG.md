@@ -1,3 +1,8 @@
+## 0.6.0 (March 23, 2022)
+
+Features:
+* Add support for plugin multiplexing [[GH-74](https://github.com/hashicorp/vault-plugin-database-oracle/pull/74)]
+
 ## 0.5.1 (December 16, 2021)
 
 * Remove vendored dependencies in the repository. This change should be transparent for plugin uses. [[GH-69](https://github.com/hashicorp/vault-plugin-database-oracle/pull/69)]
