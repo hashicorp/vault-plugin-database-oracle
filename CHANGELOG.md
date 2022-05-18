@@ -1,5 +1,9 @@
 ## Unreleased
 
+## 0.6.1 (March 23, 2022)
+
+* Re-release of 0.6.0
+
 ## 0.6.0 (March 23, 2022)
 
 Features:
