@@ -1,5 +1,11 @@
 ## Unreleased
 
+Improvements:
+* Updated golang dependencies [GH-85](https://github.com/hashicorp/vault-plugin-database-oracle/pull/85)
+  * golang.org/x/crypto@v0.0.0-20220314234659-1baeb1ce4c0b
+  * golang.org/x/sys@v0.0.0-20220412211240-33da011f77ad
+  * golang.org/x/net@v0.0.0-20211209124913-491a49abca63
+
 ## 0.6.1 (March 23, 2022)
 
 * Re-release of 0.6.0
