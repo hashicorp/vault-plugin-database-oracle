@@ -1,5 +1,7 @@
 ## Unreleased
 
+## 0.7.0 (September 15, 2022)
+
 Improvements:
 * Updated golang dependencies [GH-85](https://github.com/hashicorp/vault-plugin-database-oracle/pull/85)
   * golang.org/x/crypto@v0.0.0-20220314234659-1baeb1ce4c0b
