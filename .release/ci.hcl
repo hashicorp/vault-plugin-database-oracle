@@ -10,10 +10,7 @@ project "vault-plugin-database-oracle" {
     repository = "vault-plugin-database-oracle"
     release_branches = [
         "main",
-        "release/vault-1.9.x",
-        "release/vault-1.10.x",
-        "release/vault-1.11.x",
-        "release/vault-1.12.x",
+        "release/**",
     ]
   }
 }
