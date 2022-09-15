@@ -1,12 +1,16 @@
 ## Unreleased
 
-## 0.7.0 (September 15, 2022)
+## 0.7.0 (September 16, 2022)
 
 Improvements:
 * Updated golang dependencies [GH-85](https://github.com/hashicorp/vault-plugin-database-oracle/pull/85)
   * golang.org/x/crypto@v0.0.0-20220314234659-1baeb1ce4c0b
   * golang.org/x/sys@v0.0.0-20220412211240-33da011f77ad
-  * golang.org/x/net@v0.0.0-20211209124913-491a49abca63
+  * golang.org/x/net@v0.0.0-20220909164309-bea034e7d591 [GH-89](https://github.com/hashicorp/vault-plugin-database-oracle/pull/89)
+* Update Go to 1.19.1 [GH-89](https://github.com/hashicorp/vault-plugin-database-oracle/pull/89)
+* Update Vault dependencies [GH-89](https://github.com/hashicorp/vault-plugin-database-oracle/pull/89)
+  * `github.com/hashicorp/vault/api v1.7.2`
+  * `github.com/hashicorp/vault/sdk v0.5.3`
 
 ## 0.6.1 (March 23, 2022)
 
