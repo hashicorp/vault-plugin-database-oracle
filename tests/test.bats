@@ -124,7 +124,7 @@ setup_file(){
   while ! docker logs oracle | grep "DATABASE IS READY TO USE" > /dev/null; do sleep 1; done
 
   # setup vault user
-  docker_sqlplus_admin "DROP USER $VAULT_USER;"
+  docker_sqlplus_admin "DROP USER $VAULT_USER;" > /dev/null
   docker_sqlplus_admin "CREATE USER $VAULT_USER IDENTIFIED BY \"$VPASS\";"
   docker_sqlplus_admin "GRANT ALL PRIVILEGES TO $VAULT_USER;"
   docker_sqlplus_admin "GRANT SELECT ON gv_\$SESSION TO $VAULT_USER;"
@@ -159,16 +159,16 @@ teardown_file(){
   log "BEGIN TEARDOWN"
 
   log "dropping the vault user from oracle db"
-  docker_sqlplus_admin "DROP USER $VAULT_USER;"
+  docker_sqlplus_admin "DROP USER $VAULT_USER;" > /dev/null
 
   log "dropping the static user from oracle db"
-  docker_sqlplus_admin "DROP USER $STATIC_USER;"
+  docker_sqlplus_admin "DROP USER $STATIC_USER;" > /dev/null
 
   log "removing the oracle docker container"
-  docker rm oracle --force
+  docker rm oracle --force > /dev/null
 
   log "killing vault process"
-  pkill vault
+  pkill vault > /dev/null
 
   log "END TEARDOWN"
 }
@@ -190,32 +190,7 @@ teardown_file(){
 }
 
 @test "GET /database/config/:name - read oracle connection config" {
-  run vault read --namespace=ns1 -format=json database/config/$DB_NAME
-  assert_status 0
-
-  data=$(echo "$output" | jq -r .data)
-  local -r expected_output=$(cat - <<EOF
-{
-  "allowed_roles": [
-    "*"
-  ],
-  "connection_details": {
-    "connection_url": "{{username}}/{{password}}@localhost:1521/ORCLPDB1",
-    "max_connection_lifetime": "30s",
-    "username": "vaultadmin"
-  },
-  "password_policy": "",
-  "plugin_name": "vault-plugin-database-oracle",
-  "root_credentials_rotate_statements": []
-}
-EOF
-)
-  [[ "${data}" == "${expected_output}" ]] || \
-    log_err "bad output: expect:\n${expected_output}\ngot:\n${data}"
-}
-
-@test "LIST /database/config - list configs" {
-  run vault list --namespace=ns1 database/config
+  run vault read --namespace=ns1 database/config/$DB_NAME
   assert_status 0
 }
 
