@@ -108,7 +108,7 @@ setup_file(){
 
   log "BEGIN SETUP"
 
-  docker rm oracle --force
+  docker rm oracle --force > /dev/null
   docker run \
     -d \
     --rm \
@@ -191,6 +191,11 @@ teardown_file(){
 
 @test "GET /database/config/:name - read oracle connection config" {
   run vault read --namespace=ns1 database/config/$DB_NAME
+  assert_status 0
+}
+
+@test "LIST /database/config - list configs" {
+  run vault list --namespace=ns1 database/config
   assert_status 0
 }
 
