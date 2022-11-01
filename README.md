@@ -104,9 +104,9 @@ Sample commands for plugin registration in current versions of Vault and startin
 
 ```shell-session
 $ vault plugin register -sha256=<SHA256 Hex value of the plugin binary> \
-    secret \                  # type
+    database \                  # type
     vault-plugin-database-oracle
-Success! Registered plugin: myplugin-database-plugin
+Success! Registered plugin: vault-plugin-database-oracle
 ```
 
 Vault versions prior to v0.10.4 lacked the `vault plugin` operator and the 
