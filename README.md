@@ -100,15 +100,27 @@ You will need to define a plugin directory using the `plugin_directory` configur
 
 **Please note:** Versions v0.3.0 onwards of this plugin are incompatible with Vault versions before 1.6.0 due to an update of the database plugin interface.
 
-Sample commands for registering and starting to use the plugin:
+Sample commands for plugin registration in current versions of Vault and starting to use the plugin:
 
+```shell-session
+$ vault plugin register -sha256=<SHA256 Hex value of the plugin binary> \
+    database \                  # type
+    vault-plugin-database-oracle
+Success! Registered plugin: vault-plugin-database-oracle
 ```
+
+Vault versions prior to v0.10.4 lacked the `vault plugin` operator and the 
+registration step for them is:
+
+```shell-session
 $ shasum -a 256 vault-plugin-database-oracle > /tmp/oracle-plugin.sha256
 
 $ vault write sys/plugins/catalog/database/vault-plugin-database-oracle \
     sha256=$(cat /tmp/oracle-plugin.sha256) \
     command="vault-plugin-database-oracle"
+```
 
+```shell-session
 $ vault secrets enable database
 
 $ vault write database/config/oracle \
