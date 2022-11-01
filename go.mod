@@ -7,7 +7,6 @@ require (
 	github.com/hashicorp/vault/sdk v0.6.1
 	github.com/mattn/go-oci8 v0.1.1
 	github.com/ory/dockertest/v3 v3.9.1
-	github.com/tgulacsi/go v0.4.0
 )
 
 require (
@@ -47,7 +46,6 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
-	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lib/pq v1.1.1 // indirect
 	github.com/mattn/go-colorable v0.1.6 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect

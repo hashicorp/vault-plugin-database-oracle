@@ -7,13 +7,13 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/hashicorp/vault/sdk/database/dbplugin/v5"
-	"github.com/hashicorp/vault/sdk/database/dbplugin/v5/testing"
+	dbtesting "github.com/hashicorp/vault/sdk/database/dbplugin/v5/testing"
 	"github.com/ory/dockertest/v3"
-	"github.com/tgulacsi/go/orahlp"
 )
 
 const (
@@ -128,7 +128,8 @@ func TestOracle_NewUser(t *testing.T) {
 		"name creation": {
 			displayName: "token",
 			roleName:    "myrolenamewithextracharacters",
-			creationStmts: []string{`
+			creationStmts: []string{
+				`
 				CREATE USER {{name}} IDENTIFIED BY "{{password}}";
 				GRANT CONNECT TO {{name}};
 				GRANT CREATE SESSION TO {{name}};`,
@@ -139,7 +140,8 @@ func TestOracle_NewUser(t *testing.T) {
 		"username creation": {
 			displayName: "token",
 			roleName:    "myrolenamewithextracharacters",
-			creationStmts: []string{`
+			creationStmts: []string{
+				`
 				CREATE USER {{username}} IDENTIFIED BY "{{password}}";
 				GRANT CONNECT TO {{username}};
 				GRANT CREATE SESSION TO {{username}};`,
@@ -150,7 +152,8 @@ func TestOracle_NewUser(t *testing.T) {
 		"default_username_template": {
 			displayName: "token-withadisplayname",
 			roleName:    "areallylongrolenamewithmanycharacters",
-			creationStmts: []string{`
+			creationStmts: []string{
+				`
 				CREATE USER {{username}} IDENTIFIED BY "{{password}}";
 				GRANT CONNECT TO {{username}};
 				GRANT CREATE SESSION TO {{username}};`,
@@ -161,7 +164,8 @@ func TestOracle_NewUser(t *testing.T) {
 		"custom username_template": {
 			displayName: "token",
 			roleName:    "myrolenamewithextracharacters",
-			creationStmts: []string{`
+			creationStmts: []string{
+				`
 				CREATE USER "{{username}}" IDENTIFIED BY "{{password}}";
 				GRANT CONNECT TO "{{username}}";
 				GRANT CREATE SESSION TO "{{username}}";`,
@@ -259,7 +263,8 @@ func TestOracle_RenewUser(t *testing.T) {
 			RoleName:    "test",
 		},
 		Statements: dbplugin.Statements{
-			Commands: []string{`
+			Commands: []string{
+				`
 				CREATE USER {{name}} IDENTIFIED BY {{password}};
 				GRANT CONNECT TO {{name}};
 				GRANT CREATE SESSION TO {{name}};`,
@@ -298,14 +303,16 @@ func TestOracle_RevokeUser(t *testing.T) {
 
 	tests := map[string]testCase{
 		"name revoke": {
-			deleteStatements: []string{`
+			deleteStatements: []string{
+				`
 				REVOKE CONNECT FROM {{name}};
 				REVOKE CREATE SESSION FROM {{name}};
 				DROP USER {{name}};`,
 			},
 		},
 		"username revoke": {
-			deleteStatements: []string{`
+			deleteStatements: []string{
+				`
 				REVOKE CONNECT FROM "{{username}}";
 				REVOKE CREATE SESSION FROM "{{username}}";
 				DROP USER "{{username}}";`,
@@ -335,7 +342,8 @@ func TestOracle_RevokeUser(t *testing.T) {
 					RoleName:    "test",
 				},
 				Statements: dbplugin.Statements{
-					Commands: []string{`
+					Commands: []string{
+						`
 						CREATE USER {{name}} IDENTIFIED BY {{password}};
 						GRANT CONNECT TO {{name}};
 						GRANT CREATE SESSION TO {{name}};`,
@@ -631,8 +639,10 @@ func TestDisconnectSession(t *testing.T) {
 
 	assertCredentialsExist(t, connURL, username, password)
 
-	_, _, link := orahlp.SplitDSN(connURL)
-	userURL := fmt.Sprintf("%s/%s@%s", username, password, link)
+	userURL, err := getNewConnStr(connURL, username, password)
+	if err != nil {
+		t.Fatalf("Failed to build connection string: %s", err)
+	}
 
 	// Establish connection
 	conn, err := sql.Open("oci8", userURL)
@@ -662,11 +672,21 @@ func TestDisconnectSession(t *testing.T) {
 	}
 }
 
-func testCredentialsExist(connString, username, password string) error {
-	// Log in with the new credentials
-	_, _, link := orahlp.SplitDSN(connString)
-	connURL := fmt.Sprintf("%s/%s@%s", username, password, link)
+func getNewConnStr(connString, username, password string) (string, error) {
+	splitStr := strings.Split(connString, "@")
+	if len(splitStr) != 2 {
+		return "", fmt.Errorf("connection string invalid")
+	}
+	return fmt.Sprintf("%s/%s@%s", username, password, splitStr[1]), nil
+}
 
+func testCredentialsExist(connString, username, password string) error {
+	connURL, err := getNewConnStr(connString, username, password)
+	if err != nil {
+		return err
+	}
+
+	// Log in with the new credentials
 	db, err := sql.Open("oci8", connURL)
 	if err != nil {
 		return err
