@@ -1,6 +1,8 @@
 # vault-database-plugin-oracle
 
-A [Vault](https://www.vaultproject.io) plugin for Oracle
+A [Vault](https://www.vaultproject.io) plugin for Oracle.
+
+For more information on this plugin, see the [Oracle Database Secrets Engine](https://developer.hashicorp.com/vault/docs/secrets/databases/oracle) page.
 
 This project uses the database plugin interface introduced in Vault version 0.7.1.
 
@@ -92,6 +94,10 @@ cd tests/
 ## Installation
 
 **See [Case Sensitivity](#case-sensitivity) for important information about custom creation & rotation statements.**
+
+Before running the plugin you will need to have the the Oracle Instant Client library installed. These can be downloaded from Oracle. The libraries will need to be placed in the default library search path or defined in the ld.so.conf configuration files.
+
+If you are running Vault with mlock enabled, you will need to enable ipc_lock capabilities for the plugin binary.
 
 The Vault plugin system is documented on the [Vault documentation site](https://www.vaultproject.io/docs/internals/plugins.html).
 
