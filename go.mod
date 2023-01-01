@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/hashicorp/vault/api v1.8.2
-	github.com/hashicorp/vault/sdk v0.6.1
+	github.com/hashicorp/vault/sdk v0.6.2
 	github.com/mattn/go-oci8 v0.1.1
 	github.com/ory/dockertest/v3 v3.9.1
 )
