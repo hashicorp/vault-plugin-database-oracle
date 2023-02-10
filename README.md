@@ -12,13 +12,19 @@ This plugin is not compatible with Alpine Linux out of the box. Oracle's librari
 
 For linux/amd64, pre-built binaries can be found at
 [the releases page](https://releases.hashicorp.com/vault-plugin-database-oracle/).
-See the following table to determine what version of the Instant Client SDK the
-plugin was built with:
+See the following table to determine what version of the Oracle Instant Client
+SDK the plugin was built with:
 
 |Plugin Release|Instance Client Version|
 |---|---|
 |v0.8.0|19.18|
-|v0.7.0|19.6|
+|v0.7.0|19.6 |
+|v0.6.1|19.6 |
+|v0.6.0|19.6 |
+|v0.5.0|19.6 |
+|v0.4.0|19.6 |
+|v0.3.0|19.6 |
+|v0.2.0|19.3 |
 
 
 ## Build
