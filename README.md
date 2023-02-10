@@ -8,11 +8,23 @@ This project uses the database plugin interface introduced in Vault version 0.7.
 
 This plugin is not compatible with Alpine Linux out of the box. Oracle's libraries are glibc dependant, and Alpine has musl as its default C library.
 
+## Releases
+
+For linux/amd64, pre-built binaries can be found at
+[the releases page](https://releases.hashicorp.com/vault-plugin-database-oracle/).
+See the following table to determine what version of the Instant Client SDK the
+plugin was built with:
+
+|Plugin Release|Instance Client Version|
+|---|---|
+|v0.8.0|19.18|
+|v0.7.0|19.6|
+
+
 ## Build
 
-For linux/amd64, pre-built binaries can be found at [the releases page](https://releases.hashicorp.com/vault-plugin-database-oracle/) (built with Oracle Instant Client SDK 19.3)
-
-For other platforms, there are not currently pre-built binaries available.
+For platforms other than linux/amd64, there are not currently pre-built
+binaries available.
 
 Before building, you will need to download the Oracle Instant Client library, which is available from
 [Oracle](http://www.oracle.com/technetwork/database/features/instant-client/index-097480.html). Download the SDK package to get the headers and
