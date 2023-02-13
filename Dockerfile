@@ -18,7 +18,7 @@ RUN yum update -y && yum install -y  \
 		zip \
 		git
 
-ENV GOLANG_VERSION 1.17.7
+ENV GOLANG_VERSION 1.19.5
 
 RUN set -eux; \
 	url="https://golang.org/dl/go${GOLANG_VERSION}.linux-amd64.tar.gz"; \
@@ -34,8 +34,8 @@ ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
 ENV PKG_CONFIG_PATH $GOPATH/src/github.com/hashicorp/vault-plugin-database-oracle/scripts/linux_amd64
 
 RUN yum install -y \
-		oracle-instantclient19.6-basic \
-		oracle-instantclient19.6-devel
+		oracle-instantclient19.18-basic \
+		oracle-instantclient19.18-devel
 
 RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" "$GOPATH/src/github.com/hashicorp/vault-plugin-database-oracle" && chmod -R 777 "$GOPATH"
 
