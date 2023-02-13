@@ -1,9 +1,14 @@
 ## Unreleased
 
+## 0.8.0 (February 13, 2023)
+
 Improvements:
+* Update dependencies [GH-105](https://github.com/hashicorp/vault-plugin-database-oracle/pull/105)
+  * Update Oracle Instant Client to 19.18
+  * Update Go to 1.19.5
 * Update dependencies [GH-93](https://github.com/hashicorp/vault-plugin-database-oracle/pull/93)
-  * github.com/hashicorp/vault/api v1.8.2
-  * github.com/hashicorp/vault/sdk v0.6.1
+  * github.com/hashicorp/vault/api v1.8.3
+  * github.com/hashicorp/vault/sdk v0.7.0
   * github.com/ory/dockertest/v3 v3.9.1
 
 ## 0.7.0 (September 16, 2022)
