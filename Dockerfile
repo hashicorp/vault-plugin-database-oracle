@@ -18,7 +18,7 @@ RUN yum update -y && yum install -y  \
 		zip \
 		git
 
-ENV GOLANG_VERSION 1.19.1
+ENV GOLANG_VERSION 1.19.5
 
 RUN set -eux; \
 	url="https://golang.org/dl/go${GOLANG_VERSION}.linux-amd64.tar.gz"; \
