@@ -3,7 +3,7 @@ module github.com/hashicorp/vault-plugin-database-oracle
 go 1.19
 
 require (
-	github.com/hashicorp/vault/api v1.8.3
+	github.com/hashicorp/vault/api v1.9.0
 	github.com/hashicorp/vault/sdk v0.7.0
 	github.com/mattn/go-oci8 v0.1.1
 	github.com/ory/dockertest/v3 v3.9.1
@@ -67,7 +67,7 @@ require (
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
-	golang.org/x/crypto v0.0.0-20220314234659-1baeb1ce4c0b // indirect
+	golang.org/x/crypto v0.5.0 // indirect
 	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/sys v0.5.0 // indirect
 	golang.org/x/text v0.7.0 // indirect
