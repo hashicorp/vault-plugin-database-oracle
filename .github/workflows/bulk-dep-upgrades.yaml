@@ -1,9 +1,9 @@
 name: Upgrade dependencies
 
 on:
-schedule:
-  # Runs every 5 mins
-  - cron: '*/5 * * * *'
+  schedule:
+    # Runs every 5 mins
+    - cron: '*/5 * * * *'
 
 jobs:
   upgrade:
