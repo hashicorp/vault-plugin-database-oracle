@@ -1,11 +1,14 @@
 # Copyright (c) HashiCorp, Inc.
 # SPDX-License-Identifier: MPL-2.0
 
-version: 2
-updates:
-  - package-ecosystem: "gomod"
-    directory: "/" # Location of package manifests
-    schedule:
-      interval: "monthly"
-    reviewers:
-      - "hashicorp/vault-ecosystem"
+# disable dependabot while we pilot a GH action to do bulk updates:
+# .github/workflows/bulk-dep-upgrades.yaml
+
+# version: 2
+# updates:
+#   - package-ecosystem: "gomod"
+#     directory: "/" # Location of package manifests
+#     schedule:
+#       interval: "monthly"
+#     reviewers:
+#       - "hashicorp/vault-ecosystem"
