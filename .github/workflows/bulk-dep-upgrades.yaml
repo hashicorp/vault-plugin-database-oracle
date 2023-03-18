@@ -2,8 +2,8 @@ name: Upgrade dependencies
 
 on:
   schedule:
-    # Runs every 5 mins
-    - cron: '*/5 * * * *'
+    # Run once a day
+    - cron: '0 0 * * *'
 
 jobs:
   upgrade:
