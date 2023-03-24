@@ -1,5 +1,24 @@
 ## Unreleased
 
+## 0.8.1 (March 24, 2023)
+
+Improvements:
+
+* Update dependencies [GH-115](https://github.com/hashicorp/vault-plugin-database-oracle/pull/115)
+  * github.com/opencontainers/runc v1.1.4
+* Update dependencies
+  * Update Go to 1.20.2 [GH-114](https://github.com/hashicorp/vault-plugin-database-oracle/pull/114)
+* Update dependencies [GH-109](https://github.com/hashicorp/vault-plugin-database-oracle/pull/109)
+  * github.com/hashicorp/vault/api v1.9.0
+  * golang.org/x/crypto v0.5.0
+* Update dependencies [GH-108](https://github.com/hashicorp/vault-plugin-database-oracle/pull/108)
+  * github.com/hashicorp/vault/sdk v0.8.1
+  * github.com/hashicorp/go-kms-wrapping v2.0.7
+* Update dependencies [GH-107](https://github.com/hashicorp/vault-plugin-database-oracle/pull/107)
+  * golang.org/x/net v0.7.0
+  * golang.org/x/sys v0.5.0
+  * golang.org/x/text v0.7.0
+
 ## 0.8.0 (February 13, 2023)
 
 Improvements:
