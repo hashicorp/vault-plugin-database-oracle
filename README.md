@@ -15,7 +15,7 @@ For linux/amd64, pre-built binaries can be found at
 See the following table to determine what version of the Oracle Instant Client
 SDK the plugin was built with:
 
-|Plugin Release|Instance Client Version|
+|Plugin Release|Instant Client Version|
 |---|---|
 |v0.8.1|19.18|
 |v0.8.0|19.18|
