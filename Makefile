@@ -12,7 +12,7 @@ EXTERNAL_TOOLS=\
 
 default: dev
 
-# bin generates the releaseable binaries for vault-plugin-database-oracl0e
+# bin generates the releaseable binaries for vault-plugin-database-oracle
 bin: fmtcheck generate
 	@CGO_ENABLED=1 BUILD_TAGS='$(BUILD_TAGS)' XC_ARCH="amd64" XC_OS="linux" XC_OSARCH="linux/amd64" sh -c "'$(CURDIR)/scripts/build.sh'"
 
