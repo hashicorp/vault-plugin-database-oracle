@@ -1,5 +1,14 @@
 ## Unreleased
 
+## 0.8.2 (May 25, 2023)
+
+Improvements:
+
+* Update dependencies [GH-123](https://github.com/hashicorp/vault-plugin-database-oracle/pull/123)
+  * github.com/hashicorp/vault/api v1.9.1
+  * github.com/hashicorp/vault/sdk v0.9.0
+  * github.com/ory/dockertest/v3 v3.10.0
+
 ## 0.8.1 (March 24, 2023)
 
 Improvements:
