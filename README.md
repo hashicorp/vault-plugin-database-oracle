@@ -17,6 +17,8 @@ SDK the plugin was built with:
 
 |Plugin Release|Instant Client Version|
 |---|---|
+|v0.8.3|19.20|
+|v0.8.2|19.18|
 |v0.8.1|19.18|
 |v0.8.0|19.18|
 |v0.7.0|19.6 |
