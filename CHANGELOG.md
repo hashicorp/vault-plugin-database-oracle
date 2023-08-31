@@ -5,7 +5,7 @@ IMPROVEMENTS:
 * Update dependencies [GH-129](https://github.com/hashicorp/vault-plugin-database-oracle/pull/129)
   * `github.com/hashicorp/vault/api` v1.9.1 -> v1.9.2
   * `github.com/hashicorp/vault/sdk` v0.9.0 -> v0.9.2
-* Update dependencies [GH-XXX](https://github.com/hashicorp/vault-plugin-database-oracle/pull/XXX)
+* Update dependencies [GH-130](https://github.com/hashicorp/vault-plugin-database-oracle/pull/130)
   * Update Go to 1.20.7
   * Update Oracle Instant Client to 19.20
 
