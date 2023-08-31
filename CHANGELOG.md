@@ -8,6 +8,9 @@ IMPROVEMENTS:
 * Update dependencies [GH-130](https://github.com/hashicorp/vault-plugin-database-oracle/pull/130)
   * Update Go to 1.20.7
   * Update Oracle Instant Client to 19.20
+* Update dependencies [GH-131](https://github.com/hashicorp/vault-plugin-database-oracle/pull/131)
+  * golang.org/x
+
 
 ## 0.8.2 (May 25, 2023)
 
