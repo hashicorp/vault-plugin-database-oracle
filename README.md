@@ -177,3 +177,17 @@ Otherwise Oracle may create/look up a user with the incorrect name (`foo_bar` in
 
 The [rotation statements](https://www.vaultproject.io/api/secret/databases/index.html#rotation_statements) are optional
 and will default to `ALTER USER {{username}} IDENTIFIED BY "{{password}}"`
+
+The [disconnect statements](https://developer.hashicorp.com/vault/api-docs/secret/databases/oracle#statements) are optional and will default to the sql below. Setting `disconnect_statements` to `false` will disable the disconnect functinoality, but should be diabled with caution since it may limit the effectiveness of revocation.
+
+```sql
+ALTER USER {{username}} ACCOUNT LOCK;
+begin
+  for x in ( select inst_id, sid, serial# from gv$session where username="{{username}}" )
+  loop
+   execute immediate ( 'alter system kill session '''|| x.Sid || ',' || x.Serial# || '@' || x.inst_id ''' immediate' );
+  end loop;
+  dbms_lock.sleep(1);
+end;
+DROP USER {{username}};
+```
