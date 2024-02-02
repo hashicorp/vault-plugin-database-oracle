@@ -7,7 +7,7 @@ on:
 jobs:
   upgrade:
     # using `main` as the ref will keep your workflow up-to-date
-    uses: hashicorp/vault-workflows-common/.github/workflows/bulk-dependency-updates.yaml@bulk-updates-skip-vault-ci
+    uses: hashicorp/vault-workflows-common/.github/workflows/bulk-dependency-updates.yaml@main
     secrets:
       VAULT_ECO_GITHUB_TOKEN: ${{ secrets.VAULT_ECO_GITHUB_TOKEN }}
     with:
