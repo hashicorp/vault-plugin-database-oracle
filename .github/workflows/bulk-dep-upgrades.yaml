@@ -14,3 +14,5 @@ jobs:
       reviewer-team: hashicorp/vault-ecosystem-applications
       repository: ${{ github.repository }}
       run-id: ${{ github.run_id }}
+      # oracle plugin is not builtin to Vault
+      skip-dispatch-vault-ci: true
