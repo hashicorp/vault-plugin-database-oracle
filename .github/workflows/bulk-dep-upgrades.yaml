@@ -15,4 +15,4 @@ jobs:
       repository: ${{ github.repository }}
       run-id: ${{ github.run_id }}
       # oracle plugin is not builtin to Vault
-      skip_dispatch_vault_ci: true
+      # skip_dispatch_vault_ci: true
