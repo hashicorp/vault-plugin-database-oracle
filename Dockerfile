@@ -34,8 +34,8 @@ ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
 ENV PKG_CONFIG_PATH $GOPATH/src/github.com/hashicorp/vault-plugin-database-oracle/scripts/linux_amd64
 
 RUN yum install -y \
-		oracle-instantclient19.20-basic \
-		oracle-instantclient19.20-devel
+		oracle-instantclient19.22-basic \
+		oracle-instantclient19.22-devel
 
 RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" "$GOPATH/src/github.com/hashicorp/vault-plugin-database-oracle" && chmod -R 777 "$GOPATH"
 
