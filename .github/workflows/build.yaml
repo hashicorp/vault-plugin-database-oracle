@@ -20,11 +20,11 @@ jobs:
       - name: Check OSV
         id: osv-check
         run: |
-          test $(curl -XPOST https://api.osv.dev/v1/query -d '{"package":{"name":"oracle-instantclient19.20-basic"}, "version": "19.20"}') = "{}"
+          test $(curl -XPOST https://api.osv.dev/v1/query -d '{"package":{"name":"oracle-instantclient19.22-basic"}, "version": "19.22"}') = "{}"
       - name: Check NIST NVD
         id: nvd-check
         run: |
-          test $(curl -sSL 'https://services.nvd.nist.gov/rest/json/cves/2.0?cpeName=cpe:2.3:a:oracle:instant_client:19.20:*' | jq .totalResults) -eq 0
+          test $(curl -sSL 'https://services.nvd.nist.gov/rest/json/cves/2.0?cpeName=cpe:2.3:a:oracle:instant_client:19.22:*' | jq .totalResults) -eq 0
 
   get-product-version:
     runs-on: ubuntu-latest

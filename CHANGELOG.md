@@ -1,5 +1,18 @@
 ## Unreleased
 
+## 0.9.0 (February 2, 2024)
+IMPROVEMENTS:
+* Update dependencies [GH-144](https://github.com/hashicorp/vault-plugin-database-oracle/pull/144)
+  * github.com/hashicorp/vault/api v1.9.2 -> v1.11.0
+  * github.com/hashicorp/vault/sdk v0.9.2 -> v0.10.2
+* Bump github.com/go-jose/go-jose/v3 from 3.0.0 to 3.0.1 [GH-138](https://github.com/hashicorp/vault-plugin-database-oracle/pull/138)
+* Bump golang.org/x/crypto from 0.12.0 to 0.17.0 [GH-140](https://github.com/hashicorp/vault-plugin-database-oracle/pull/140)
+* Bump github.com/docker/docker from 23.0.4+incompatible to 23.0.8+incompatible [GH-142](https://github.com/hashicorp/vault-plugin-database-oracle/pull/142)
+* Bump github.com/opencontainers/runc from 1.1.6 to 1.1.12 [GH-143](https://github.com/hashicorp/vault-plugin-database-oracle/pull/143)
+* Update dependencies [GH-145](https://github.com/hashicorp/vault-plugin-database-oracle/pull/145)
+  * Update Go from 1.20.7 to 1.21.6
+  * Update Oracle Instant Client from 19.20 to 19.22
+
 ## 0.8.3 (August 31, 2023)
 IMPROVEMENTS:
 * Update dependencies [GH-129](https://github.com/hashicorp/vault-plugin-database-oracle/pull/129)
