@@ -4,6 +4,7 @@ IMPROVEMENTS:
   * `github.com/hashicorp/vault/api` v1.11.0 -> v1.12.0
   * `github.com/hashicorp/vault/sdk` v0.10.2 -> v0.11.0
 * Bump github.com/go-jose/go-jose/v3 from 3.0.1 to 3.0.3 [GH-148](https://github.com/hashicorp/vault-plugin-database-oracle/pull/148)
+* Bump github.com/jackc/pgx/v4 from 4.18.1 to 4.18.2 [GH-149](https://github.com/hashicorp/vault-plugin-database-oracle/pull/149)
 
 ## 0.9.0 (February 2, 2024)
 IMPROVEMENTS:
