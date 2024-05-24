@@ -1,10 +1,13 @@
 ## Unreleased
+
+## 0.10.0 (May 24, 2024)
 IMPROVEMENTS:
-* Update dependencies [GH-147](https://github.com/hashicorp/vault-plugin-database-oracle/pull/147)
-  * `github.com/hashicorp/vault/api` v1.11.0 -> v1.12.0
-  * `github.com/hashicorp/vault/sdk` v0.10.2 -> v0.11.0
-* Bump github.com/go-jose/go-jose/v3 from 3.0.1 to 3.0.3 [GH-148](https://github.com/hashicorp/vault-plugin-database-oracle/pull/148)
-* Bump github.com/jackc/pgx/v4 from 4.18.1 to 4.18.2 [GH-149](https://github.com/hashicorp/vault-plugin-database-oracle/pull/149)
+* Updated dependencies [GH-155](https://github.com/hashicorp/vault-plugin-database-oracle/pull/155)
+  * bump Go from 1.21.6 to 1.22.3
+  * bump Oracle Instant Client from 19.22 to 19.23
+* Updated dependencies [GH-152](https://github.com/hashicorp/vault-plugin-database-oracle/pull/152):
+  * bump github.com/hashicorp/vault/api to v1.13.0
+  * bump github.com/hashicorp/vault/sdk to v0.12.0
 
 ## 0.9.0 (February 2, 2024)
 IMPROVEMENTS:
