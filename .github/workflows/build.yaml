@@ -87,7 +87,9 @@ jobs:
         run: |
           mkdir out
           make build-in-container
+          cp LICENSE pkg/LICENSE
           zip -r -j out/${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_linux_${{ matrix.arch }}.zip pkg/
+
       - name: Upload
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
