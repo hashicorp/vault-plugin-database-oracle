@@ -1,5 +1,9 @@
 ## Unreleased
 
+## 0.10.1 (May 24, 2024)
+IMPROVEMENTS:
+* Add license file to build artifacts
+
 ## 0.10.0 (May 24, 2024)
 IMPROVEMENTS:
 * Updated dependencies [GH-155](https://github.com/hashicorp/vault-plugin-database-oracle/pull/155)
