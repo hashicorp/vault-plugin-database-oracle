@@ -87,7 +87,7 @@ jobs:
         run: |
           mkdir out
           make build-in-container
-          cp LICENSE pkg/LICENSE
+          cp -f LICENSE pkg/LICENSE
           zip -r -j out/${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_linux_${{ matrix.arch }}.zip pkg/
 
       - name: Upload
