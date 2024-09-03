@@ -200,7 +200,7 @@ func (o *Oracle) UpdateUser(ctx context.Context, req dbplugin.UpdateUserRequest)
 	}
 
 	if req.Password != nil {
-		err := o.changeUserPassword(ctx, req.Username, req.Password.NewPassword, req.Password.Statements.Commands)
+		err := o.changeUserPassword(ctx, req.Username, req.Password.NewPassword, req.Password.Statements.Commands, req.SelfManagedPassword)
 		if err != nil {
 			return dbplugin.UpdateUserResponse{}, fmt.Errorf("failed to change password: %w", err)
 		}
@@ -210,7 +210,7 @@ func (o *Oracle) UpdateUser(ctx context.Context, req dbplugin.UpdateUserRequest)
 	return dbplugin.UpdateUserResponse{}, nil
 }
 
-func (o *Oracle) changeUserPassword(ctx context.Context, username string, newPassword string, rotateStatements []string) error {
+func (o *Oracle) changeUserPassword(ctx context.Context, username string, newPassword string, rotateStatements []string, selfManagedPassword string) error {
 	if len(rotateStatements) == 0 {
 		rotateStatements = []string{defaultRotateCredsSql}
 	}
@@ -233,9 +233,18 @@ func (o *Oracle) changeUserPassword(ctx context.Context, username string, newPas
 	o.Lock()
 	defer o.Unlock()
 
-	db, err := o.getConnection(ctx)
-	if err != nil {
-		return fmt.Errorf("unable to get database connection: %w", err)
+	var db *sql.DB
+	var err error
+	if selfManagedPassword != "" {
+		db, err = o.getStaticConnection(ctx, username, selfManagedPassword)
+		if err != nil {
+			return fmt.Errorf("unable to get static connection from cache: %w", err)
+		}
+	} else {
+		db, err = o.getConnection(ctx)
+		if err != nil {
+			return fmt.Errorf("unable to get database connection: %w", err)
+		}
 	}
 
 	tx, err := db.BeginTx(ctx, nil)
@@ -448,4 +457,13 @@ func (o *Oracle) getConnection(ctx context.Context) (*sql.DB, error) {
 	}
 
 	return db.(*sql.DB), nil
+}
+
+func (o *Oracle) getStaticConnection(ctx context.Context, username, password string) (*sql.DB, error) {
+	db, err := o.StaticConnection(ctx, username, password)
+	if err != nil {
+		return nil, err
+	}
+
+	return db, nil
 }
