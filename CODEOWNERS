@@ -1,4 +1,5 @@
 # release configuration
+* @hashicorp/vault-ecosystem
 
 /.release/                               @hashicorp/github-secure-vault-ecosystem
 /.github/workflows/build.yml             @hashicorp/github-secure-vault-ecosystem
