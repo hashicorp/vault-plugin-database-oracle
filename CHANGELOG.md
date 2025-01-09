@@ -1,5 +1,14 @@
 ## Unreleased
 
+## 0.10.2 (January 9, 2024)
+
+BUGS:
+* bump Vault sdk to v0.14.1 to fix a bug where slow database connections can cause goroutines to be blocked [GH-171](https://github.com/hashicorp/vault-plugin-database-oracle/pull/171)
+
+IMPROVEMENTS:
+* Updated dependencies [GH-171](https://github.com/hashicorp/vault-plugin-database-oracle/pull/171)
+  * bump Go from 1.22.3 to 1.23.3
+
 ## 0.10.1 (May 24, 2024)
 IMPROVEMENTS:
 * Add license file to build artifacts
