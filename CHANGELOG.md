@@ -1,5 +1,7 @@
 ## Unreleased
 
+* bump go version to 1.23.6
+
 ## 0.10.2 (January 9, 2024)
 
 BUGS:
