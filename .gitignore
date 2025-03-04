@@ -9,6 +9,7 @@ _test
 
 /pkg/
 /bin/
+/output/
 
 # Architecture specific extensions/prefixes
 *.[568vq]
