@@ -1,10 +1,12 @@
 ## Unreleased
 
+IMPROVEMENTS:
 * bump go version to 1.23.6
-* Updated indirect dependencies [GH-179](https://github.com/hashicorp/vault-plugin-database-oracle/pull/179)
+* Update indirect dependencies [GH-179](https://github.com/hashicorp/vault-plugin-database-oracle/pull/179)
   * golang.org/x/crypto v0.31.0 -> golang.org/x/crypto v0.35.0
   * golang.org/x/oauth2 v0.24.0 -> golang.org/x/oauth2 v0.27.0
   * github.com/go-jose/go-jose/v4 v4.0.4 -> github.com/go-jose/go-jose/v4 v4.0.5
+* bump Oracle Instant Client from 19.23 to 19.26
 
 ## 0.10.2 (January 9, 2024)
 
