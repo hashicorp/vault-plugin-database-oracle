@@ -7,6 +7,10 @@ IMPROVEMENTS:
   * golang.org/x/oauth2 v0.24.0 -> golang.org/x/oauth2 v0.27.0
   * github.com/go-jose/go-jose/v4 v4.0.4 -> github.com/go-jose/go-jose/v4 v4.0.5
 * bump Oracle Instant Client from 19.23 to 19.26
+* Update dependencies [GH-178](https://github.com/hashicorp/vault-plugin-database-oracle/pull/178)
+  * github.com/hashicorp/vault/api v1.15.0 -> v1.16.0
+  * github.com/hashicorp/vault/sdk v0.14.1 -> v0.15.2
+  * github.com/ory/dockertest/v3 v3.10.0 -> v3.11.0
 
 ## 0.10.2 (January 9, 2024)
 
