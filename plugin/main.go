@@ -15,12 +15,14 @@ import (
 func main() {
 	apiClientMeta := &api.PluginAPIClientMeta{}
 	flags := apiClientMeta.FlagSet()
-	flags.Parse(os.Args[1:])
+
+	if err := flags.Parse(os.Args[1:]); err != nil {
+		fatal(err)
+	}
 
 	err := Run()
 	if err != nil {
-		log.Println(err)
-		os.Exit(1)
+		fatal(err)
 	}
 }
 
@@ -29,4 +31,9 @@ func Run() error {
 	dbplugin.ServeMultiplex(plugin.New)
 
 	return nil
+}
+
+func fatal(err error) {
+	log.Println(err)
+	os.Exit(1)
 }
