@@ -4,6 +4,7 @@ SHELL := /usr/bin/env bash -euo pipefail -c
 # Be sure to place this BEFORE `include` directives, if any.
 THIS_FILE := $(lastword $(MAKEFILE_LIST))
 
+PLUGIN_NAME ?= vault-plugin-database-oracle
 TEST?=$$(go list ./... | grep -v /vendor/ | grep -v /integ)
 GOFMT_FILES?=$$(find . -name '*.go' | grep -v vendor)
 EXTERNAL_TOOLS=\
@@ -11,6 +12,9 @@ EXTERNAL_TOOLS=\
 	github.com/jstemmer/go-junit-report@v0.9.1
 
 default: dev
+
+godev: fmtcheck generate
+	CGO_ENABLED=0 go build -o bin/$(PLUGIN_NAME) plugin/main.go
 
 # bin generates the releaseable binaries for vault-plugin-database-oracle
 bin: fmtcheck generate
