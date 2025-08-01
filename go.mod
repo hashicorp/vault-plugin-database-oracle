@@ -5,8 +5,8 @@ go 1.24.0
 toolchain go1.24.1
 
 require (
-	github.com/hashicorp/vault/api v1.16.0
-	github.com/hashicorp/vault/sdk v0.17.0
+	github.com/hashicorp/vault/api v1.20.0
+	github.com/hashicorp/vault/sdk v0.18.0
 	github.com/mattn/go-oci8 v0.1.1
 	github.com/ory/dockertest/v3 v3.12.0
 )
@@ -69,7 +69,7 @@ require (
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/go-version v1.7.0 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
-	github.com/hashicorp/hcl v1.0.1-vault-5 // indirect
+	github.com/hashicorp/hcl v1.0.1-vault-7 // indirect
 	github.com/hashicorp/yamux v0.1.2 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
 	github.com/jackc/pgconn v1.14.3 // indirect
