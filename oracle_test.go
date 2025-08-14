@@ -78,7 +78,7 @@ func prepareOracleTestContainer(t *testing.T) (connString string, cleanup func()
 	if err = pool.Retry(func() error {
 		var err error
 		var db *sql.DB
-		db, err = sql.Open("oci8", connString)
+		db, err = sql.Open(oracleTypeName, connString)
 		if err != nil {
 			return err
 		}
@@ -648,7 +648,7 @@ func TestDisconnectSession(t *testing.T) {
 	}
 
 	// Establish connection
-	conn, err := sql.Open("oci8", userURL)
+	conn, err := sql.Open(oracleTypeName, userURL)
 	if err != nil {
 		t.Fatalf("Failed to open initial connection: %s", err)
 	}
@@ -690,7 +690,7 @@ func testCredentialsExist(connString, username, password string) error {
 	}
 
 	// Log in with the new credentials
-	db, err := sql.Open("oci8", connURL)
+	db, err := sql.Open(oracleTypeName, connURL)
 	if err != nil {
 		return err
 	}
