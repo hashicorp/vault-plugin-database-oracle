@@ -18,11 +18,12 @@ import (
 	"github.com/hashicorp/vault/sdk/helper/dbtxn"
 	"github.com/hashicorp/vault/sdk/helper/strutil"
 	"github.com/hashicorp/vault/sdk/helper/template"
-	_ "github.com/mattn/go-oci8"
+
+	_ "github.com/godror/godror"
 )
 
 const (
-	oracleTypeName = "oci8"
+	oracleTypeName = "godror"
 
 	defaultRotateCredsSql = `ALTER USER {{username}} IDENTIFIED BY "{{password}}"`
 
