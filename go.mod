@@ -1,8 +1,6 @@
 module github.com/hashicorp/vault-plugin-database-oracle
 
-go 1.23.3
-
-toolchain go1.23.4
+go 1.25.0
 
 require (
 	github.com/hashicorp/vault/api v1.15.0
