@@ -203,8 +203,8 @@ github.com/hashicorp/hcl v1.0.1-vault-5 h1:kI3hhbbyzr4dldA8UdTb7ZlVVlI2DACdCfz31
 github.com/hashicorp/hcl v1.0.1-vault-5/go.mod h1:XYhtn6ijBSAj6n4YqAaf7RBPS4I06AItNorpy+MoQNM=
 github.com/hashicorp/vault/api v1.15.0 h1:O24FYQCWwhwKnF7CuSqP30S51rTV7vz1iACXE/pj5DA=
 github.com/hashicorp/vault/api v1.15.0/go.mod h1:+5YTO09JGn0u+b6ySD/LLVf8WkJCPLAL2Vkmrn2+CM8=
-github.com/hashicorp/vault/sdk v0.14.1 h1:QTgsrcYLGt5c2iZKwdHW6EmqPIr1Q0XEIQ1ifZZ94Ms=
-github.com/hashicorp/vault/sdk v0.14.1/go.mod h1:Ylscj97cLKhoVal3MqLSCYBfBSzWcNOOaMxaNd+O20g=
+github.com/hashicorp/vault/sdk v0.14.2-0.20250820190711-41be801f040f h1:GFUbr3rEmIQOCMrlipWJoS3KTk6wCFAOW1LyQf+PxNk=
+github.com/hashicorp/vault/sdk v0.14.2-0.20250820190711-41be801f040f/go.mod h1:Ylscj97cLKhoVal3MqLSCYBfBSzWcNOOaMxaNd+O20g=
 github.com/hashicorp/yamux v0.1.1 h1:yrQxtgseBDrq9Y652vSRDvsKCJKOUD+GzTS4Y0Y8pvE=
 github.com/hashicorp/yamux v0.1.1/go.mod h1:CtWFDAQgb7dxtzFs4tWbplKIe2jSi3+5vKbgIO0SLnQ=
 github.com/jackc/chunkreader v1.0.0/go.mod h1:RT6O25fNZIuasFJRyZ4R/Y2BbhasbmZXF9QQ7T3kePo=

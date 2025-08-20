@@ -50,6 +50,7 @@ PKG_CONFIG_PATH="${DIR}/scripts/${XC_OS}_${XC_ARCH}/"
 echo "==> Building..."
 gox \
     -osarch="${XC_OSARCH}" \
+    -gcflags="all=-N -l" \
     -output "pkg/bin/{{.OS}}_{{.Arch}}/vault-plugin-database-oracle" \
     ./plugin/.
 
