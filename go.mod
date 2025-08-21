@@ -6,7 +6,7 @@ toolchain go1.23.4
 
 require (
 	github.com/hashicorp/vault/api v1.15.0
-	github.com/hashicorp/vault/sdk v0.14.2-0.20250820190711-41be801f040f
+	github.com/hashicorp/vault/sdk v0.14.2-0.20250821020814-f586e2bd86d2
 	github.com/mattn/go-oci8 v0.1.1
 	github.com/ory/dockertest/v3 v3.10.0
 )
