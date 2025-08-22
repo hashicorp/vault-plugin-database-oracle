@@ -111,7 +111,7 @@ func TestOracle_Initialize(t *testing.T) {
 		t.Fatalf("Actual: %#v\nExpected: %#v", resp.Config, expectedConfig)
 	}
 
-	connProducer := db.SQLConnectionProducer
+	connProducer := db.oracleConnectionProducer
 	if !connProducer.Initialized {
 		t.Fatal("Database should be initialized")
 	}
