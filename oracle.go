@@ -13,16 +13,15 @@ import (
 	"time"
 
 	dbplugin "github.com/hashicorp/vault/sdk/database/dbplugin/v5"
-	"github.com/hashicorp/vault/sdk/database/helper/connutil"
 	"github.com/hashicorp/vault/sdk/database/helper/dbutil"
 	"github.com/hashicorp/vault/sdk/helper/dbtxn"
 	"github.com/hashicorp/vault/sdk/helper/strutil"
 	"github.com/hashicorp/vault/sdk/helper/template"
-	_ "github.com/mattn/go-oci8"
+	_ "github.com/sijms/go-ora/v2"
 )
 
 const (
-	oracleTypeName = "oci8"
+	oracleTypeName = "oracle"
 
 	defaultRotateCredsSql = `ALTER USER {{username}} IDENTIFIED BY "{{password}}"`
 
@@ -52,7 +51,7 @@ var (
 var _ dbplugin.Database = (*Oracle)(nil)
 
 type Oracle struct {
-	*connutil.SQLConnectionProducer
+	*oracleConnectionProducer
 	usernameProducer template.StringTemplate
 
 	splitStatements    bool
@@ -67,11 +66,11 @@ func New() (interface{}, error) {
 }
 
 func new() *Oracle {
-	connProducer := &connutil.SQLConnectionProducer{}
+	connProducer := &oracleConnectionProducer{}
 	connProducer.Type = oracleTypeName
 
 	dbType := &Oracle{
-		SQLConnectionProducer: connProducer,
+		oracleConnectionProducer: connProducer,
 	}
 
 	return dbType
@@ -109,7 +108,7 @@ func (o *Oracle) Initialize(ctx context.Context, req dbplugin.InitializeRequest)
 		return dbplugin.InitializeResponse{}, fmt.Errorf("invalid username template: %w", err)
 	}
 
-	err = o.SQLConnectionProducer.Initialize(ctx, req.Config, req.VerifyConnection)
+	err = o.oracleConnectionProducer.Initialize(ctx, req.Config, req.VerifyConnection)
 	if err != nil {
 		return dbplugin.InitializeResponse{}, err
 	}
@@ -136,8 +135,8 @@ func coerceToBool(m map[string]interface{}, key string, def bool) (bool, error) 
 }
 
 func (o *Oracle) NewUser(ctx context.Context, req dbplugin.NewUserRequest) (dbplugin.NewUserResponse, error) {
-	o.Lock()
-	defer o.Unlock()
+	o.mu.Lock()
+	defer o.mu.Unlock()
 
 	username, err := o.usernameProducer.Generate(req.UsernameConfig)
 	if err != nil {
@@ -230,21 +229,15 @@ func (o *Oracle) changeUserPassword(ctx context.Context, username string, newPas
 		return errors.New("no rotation statements found")
 	}
 
-	o.Lock()
-	defer o.Unlock()
+	o.mu.Lock()
+	defer o.mu.Unlock()
 
 	var db *sql.DB
 	var err error
-	if selfManagedPassword != "" {
-		db, err = o.getStaticConnection(ctx, username, selfManagedPassword)
-		if err != nil {
-			return fmt.Errorf("unable to get static connection from cache: %w", err)
-		}
-	} else {
-		db, err = o.getConnection(ctx)
-		if err != nil {
-			return fmt.Errorf("unable to get database connection: %w", err)
-		}
+
+	db, err = o.getConnection(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to get database connection: %w", err)
 	}
 
 	tx, err := db.BeginTx(ctx, nil)
@@ -271,8 +264,8 @@ func (o *Oracle) changeUserPassword(ctx context.Context, username string, newPas
 }
 
 func (o *Oracle) DeleteUser(ctx context.Context, req dbplugin.DeleteUserRequest) (dbplugin.DeleteUserResponse, error) {
-	o.Lock()
-	defer o.Unlock()
+	o.mu.Lock()
+	defer o.mu.Unlock()
 
 	db, err := o.getConnection(ctx)
 	if err != nil {
@@ -457,13 +450,4 @@ func (o *Oracle) getConnection(ctx context.Context) (*sql.DB, error) {
 	}
 
 	return db.(*sql.DB), nil
-}
-
-func (o *Oracle) getStaticConnection(ctx context.Context, username, password string) (*sql.DB, error) {
-	db, err := o.StaticConnection(ctx, username, password)
-	if err != nil {
-		return nil, err
-	}
-
-	return db, nil
 }
