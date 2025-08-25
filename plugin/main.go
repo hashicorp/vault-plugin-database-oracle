@@ -53,18 +53,19 @@ func RunPProf() {
 		return
 	}
 
-	// write the port to a file for reference
 	port := listener.Addr().(*net.TCPAddr).Port
+	// Log the port number just for reference in case file writing fails
+	log.Printf("started plugin pprof server on port: %d", port)
+
+	// write the port to a file for reference
 	file, err := os.Create("/tmp/pprof_port.txt")
 	if err != nil {
 		log.Printf("Failed to create port file: %v", err)
-		return
 	}
 	defer file.Close()
 	_, err = file.WriteString(strconv.Itoa(port))
 	if err != nil {
 		log.Printf("Failed to write port to file: %v", err)
-		return
 	}
 
 	mux := http.NewServeMux()
