@@ -1,3 +1,6 @@
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: MPL-2.0
+
 kind: ENHANCEMENTS
 body: Update dependencies [GH-178](https://github.com/hashicorp/vault-plugin-database-oracle/pull/178)
 time: 2025-08-26T14:35:53.971589-07:00
