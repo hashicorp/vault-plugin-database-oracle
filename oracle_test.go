@@ -7,10 +7,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net"
 	"os"
+	"os/signal"
 	"reflect"
 	"regexp"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -22,6 +25,11 @@ import (
 const (
 	defaultUser     = "system"
 	defaultPassword = "oracle"
+)
+
+var (
+	BIND_OK         = []byte{0x30, 0x0C, 0x02, 0x01, 0x01, 0x61, 0x07, 0x0A, 0x01, 0x00, 0x04, 0x00, 0x04, 0x00}
+	SRCH_DONE_NOOBJ = []byte{0x30, 0x0C, 0x02, 0x01, 0x02, 0x65, 0x07, 0x0A, 0x01, 0x20, 0x04, 0x00, 0x04, 0x00}
 )
 
 func getRequestTimeout(t *testing.T) time.Duration {
@@ -369,6 +377,130 @@ func TestOracle_RevokeUser(t *testing.T) {
 			dbtesting.AssertDeleteUser(t, db, deleteReq)
 			assertCredentialsDoNotExist(t, connURL, createResp.Username, password)
 		})
+	}
+}
+
+func TestOracle_TNSAliasingMemoryLeak(t *testing.T) {
+	db := new()
+	defer dbtesting.AssertClose(t, db)
+
+	// set up fake OUD listener
+	setupOUDListener(t)
+
+	// set up TNS Admin
+	setupTNSAdmin(t)
+
+	// @TODO modify connURL to point to fake OUD
+	connURL := "system/oracle@CN_3_TXT"
+
+	req := dbplugin.InitializeRequest{
+		Config: map[string]interface{}{
+			"connection_url": connURL,
+		},
+		VerifyConnection: true,
+	}
+
+	_, err := db.Initialize(context.Background(), req)
+	if err == nil {
+		t.Fatal("expected failure to initialize, instead succeeded")
+	}
+
+	t.Log(err)
+
+	//for i := 0; i < 1000; i++ {
+	//	_, err := db.Initialize(context.Background(), req)
+	//	if err == nil {
+	//		t.Fatal("expected failure to initialize, instead succeeded")
+	//	}
+	//}
+}
+
+func setupOUDListener(t *testing.T) {
+	t.Helper()
+	listener, err := net.Listen("tcp", ":1389")
+	if err != nil {
+		t.Fatalf("Failed to listen on :1389: %s", err)
+	}
+	// Channel to capture OS signals
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	t.Log("fake OUD listening on :1389")
+
+	// outer goroutine is responsible for accepting new connections
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				continue
+			}
+			// prevent loop from blocking while handling a single connection
+			go handleOUD(conn)
+		}
+	}()
+
+	<-sigChan
+	t.Log("Shutting down OUD server...")
+	err = listener.Close()
+	if err != nil {
+		t.Fatalf("error closing OUD listener: %s", err)
+	}
+}
+
+func handleOUD(conn net.Conn) {
+	defer conn.Close()
+	conn.SetDeadline(time.Now().Add(5 * time.Second))
+
+	buf := make([]byte, 8192)
+	// mock client's bind request
+	_, err := conn.Read(buf)
+	if err != nil {
+		return
+	}
+
+	// send bind OK packets
+	_, err = conn.Write(BIND_OK)
+	if err != nil {
+		return
+	}
+
+	// mock client's search request
+	_, err = conn.Read(buf) // client's search request
+	if err != nil {
+		return
+	}
+
+	// send no object found packets
+	_, err = conn.Write(SRCH_DONE_NOOBJ)
+	if err != nil {
+		return
+	}
+}
+
+func setupTNSAdmin(t *testing.T) {
+	t.Helper()
+
+	// set TNS_ADMIN
+	tnsAdmin := "/tmp/oracletest/tns"
+	os.Setenv("TNS_ADMIN", tnsAdmin)
+
+	// write sqlnet.ora to /tmp/oracletest/tns/sqlnet.ora
+	sqlnet := `NAMES.DIRECTORY_PATH=(LDAP, EZCONNECT, TNSNAMES)
+LDAP_DIRECTORY_ACCESS=ANONYMOUS`
+	err := os.WriteFile(tnsAdmin+"/sqlnet.ora", []byte(sqlnet), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write sqlnet.ora: %s", err)
+	}
+
+	// write ldap.ora to /tmp/oracletest/tns/ldap.ora
+	// server type is OID (Oracle Internet Directory)
+	ldap := `DIRECTORY_SERVERS=(127.0.0.1:1389:1389)
+DIRECTORY_SERVER_TYPE=OID
+DEFAULT_ADMIN_CONTEXT="dc=TESTCLI,dc=COM"`
+
+	err = os.WriteFile(tnsAdmin+"/ldap.ora", []byte(ldap), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write ldap.ora: %s", err)
 	}
 }
 
