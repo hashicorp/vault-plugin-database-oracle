@@ -7,8 +7,8 @@ toolchain go1.24.1
 require (
 	github.com/hashicorp/vault/api v1.16.0
 	github.com/hashicorp/vault/sdk v0.17.0
-	github.com/mattn/go-oci8 v0.1.1
 	github.com/ory/dockertest/v3 v3.12.0
+	github.com/sijms/go-ora/v2 v2.8.24
 )
 
 require (
