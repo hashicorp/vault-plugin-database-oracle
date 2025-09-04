@@ -175,6 +175,14 @@ echo "$${ORACLE_CLIENT_DIR}" | sudo tee /etc/ld.so.conf.d/oracle-instantclient.c
 # Update the linker cache
 sudo ldconfig
 
+if [[ -f "$${ORACLE_CLIENT_DIR}/sqlplus" ]]; then
+  # Create a symbolic link in /usr/local/bin to the sqlplus executable
+  sudo ln -sf "$${ORACLE_CLIENT_DIR}/sqlplus" /usr/local/bin/sqlplus
+  logger "Successfully created symbolic link for sqlplus."
+else
+  fail "Error: sqlplus executable not found in $${ORACLE_CLIENT_DIR}."
+fi
+
 logger "Creating Vault environment file $${VAULT_DIR}/vault.env"
 sudo tee "$${VAULT_DIR}/vault.env" > /dev/null <<EOF
 # empty
@@ -291,27 +299,7 @@ sudo -u vault ldd /etc/vault.d/plugins/vault-plugin-database-oracle
 
 PLUGIN_SHA256=$(sha256sum "$${ORACLE_PLUGIN_PATH}" | cut -d ' ' -f 1)
 
-logger "Registering the Oracle plugin with Vault"
 vault plugin register -sha256="$${PLUGIN_SHA256}" database "$${PLUGIN_NAME}"
-
-CONNECTION_URL="{{username}}/{{password}}@//${tpl_rds_endpoint}/${tpl_oracle_db_name}"
-
-# Set up RDS dynamic credentials
-vault secrets enable database
-vault write database/config/oracle \
-  plugin_name="vault-plugin-database-oracle" \
-  allowed_roles="*" \
-  connection_url="$${CONNECTION_URL}" \
-  username="${tpl_vault_admin}" \
-  password="${tpl_rds_admin_password}" \
-  verify_connection=false
-vault write database/roles/test \
-  db_name="oracle" \
-  default_ttl="1h" max_ttl="24h" \
-  creation_statements="CREATE USER {{name}} IDENTIFIED BY \"{{password}}\"; GRANT CONNECT TO {{name}};"
-
-# Don't rotate the password so that we're able to recreate our Vault EC2 instance without having to recreate the RDS instance
-#vault write -force database/rotate-root/oracle
 
 logger "Complete"
 

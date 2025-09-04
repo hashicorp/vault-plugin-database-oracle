@@ -19,8 +19,19 @@ variable "vault_zip_file" {
 variable "vault_license" {
 }
 
+# db_admin is the username for the master DB user. DO NOT provide this to Vault.
+variable "db_admin" {
+  default = "DB_ADMIN"
+}
+
+# vault_admin is the username for the Vault root user.
 variable "vault_admin" {
-  default = "vaultadmin"
+  default = "VAULT_ADMIN"
+}
+
+# num_static_users is the number of static DB users we will create for our test environment
+variable "num_static_users" {
+  default = 10
 }
 
 # Instance size
