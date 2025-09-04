@@ -234,3 +234,66 @@ Once your code changes are complete, create the changelog entry:
 3.  **Commit the new file.** After you're done, `changie` will create a new
     YAML file in the `.changie/unreleased` directory. Commit this file along with your other
     code changes before submitting your pull request.
+
+
+## Terraform Bootstrap
+
+This repo contains some terraform config in the `bootstrap/terraform` directory
+to bootstrap a complete Vault and Oracle test environment in AWS. It will
+provision and automatically configure all necessary infrastructure and dependencies for testing
+the Vault Database Secrets Engine for Oracle.
+
+The environment consists of an Oracle RDS instance and an EC2 instance running
+Vault, pre-configured to communicate with each other.
+
+### Prerequisites
+
+- Terraform v1.0+
+- AWS CLI configured and authenticated
+
+### Usage
+
+1. **Configure Variables**: Create a `terraform.tfvars` file in the `bootstrap/terraform` directory to specify your Vault license:
+
+    ```
+    # terraform.tfvars
+    vault_license = "YOUR_VAULT_ENTERPRISE_LICENSE"
+    ```
+
+    Alternatively, specify the Vault license via the environment:
+
+    ```
+    export TF_VAR_vault_licent=YOUR_VAULT_ENTERPRISE_LICENSE
+    ```
+
+2. **Deploy**: Run the following commands in the `bootstrap/terraform` directory:
+
+    ```
+    terraform init
+    terraform apply
+    ```
+
+    Review the plan and enter `yes` to approve. The public IP and ssh
+    information of the Vault server will be an output for further testing.
+
+3. **Connect via ssh**: Run the ssh command output by the terraform run to
+    login to the ec2 instance. Once connected, perform any tests or run the
+    following commands:
+
+    Read dynamic creds:
+    ```
+    vault read database/creds/test
+    ```
+
+    Read static creds:
+    ```
+    vault read database/static-creds/static-role-0
+    vault write -f database/rotate-role/static-role-0
+    vault read database/static-creds/static-role-0
+    ```
+
+4. **Teardown**: When you are finished, destroy all resources to avoid ongoing AWS costs.
+
+    ```
+    terraform destroy
+    ```
