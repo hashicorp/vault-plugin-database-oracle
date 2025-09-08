@@ -1,3 +1,6 @@
+-- Copyright (c) HashiCorp, Inc.
+-- SPDX-License-Identifier: MPL-2.0
+
 -- This directive is essential for automation. It ensures that if any
 -- SQL statement fails, the sqlplus client will exit immediately with
 -- the Oracle error code, causing shell scripts with 'set e' to fail.
