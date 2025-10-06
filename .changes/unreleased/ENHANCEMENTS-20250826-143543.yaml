@@ -1,3 +1,6 @@
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: MPL-2.0
+
 kind: ENHANCEMENTS
 body: bump Oracle Instant Client from 19.23 to 19.26
 time: 2025-08-26T14:35:43.407822-07:00
