@@ -1,8 +1,0 @@
-# Copyright (c) HashiCorp, Inc.
-# SPDX-License-Identifier: MPL-2.0
-
-kind: ENHANCEMENTS
-body: Update indirect dependencies [GH-179](https://github.com/hashicorp/vault-plugin-database-oracle/pull/179)
-time: 2025-08-26T14:35:27.841625-07:00
-custom:
-    Issue: "179"

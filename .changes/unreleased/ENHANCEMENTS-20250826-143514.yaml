@@ -1,8 +1,0 @@
-# Copyright (c) HashiCorp, Inc.
-# SPDX-License-Identifier: MPL-2.0
-
-kind: ENHANCEMENTS
-body: bump go version to 1.23.6
-time: 2025-08-26T14:35:14.480957-07:00
-custom:
-    Issue: "173"
