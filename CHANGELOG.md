@@ -1,4 +1,7 @@
-## 0.10.2 (January 9, 2024)
+## 0.10.2 (January 9, 2025)
+
+FEATURES:
+* Add support for self-managed static roles (requires Vault Enterprise v1.18+) [GH-171](https://github.com/hashicorp/vault-plugin-database-oracle/pull/164)
 
 BUGS:
 * bump Vault sdk to v0.14.1 to fix a bug where slow database connections can cause goroutines to be blocked [GH-171](https://github.com/hashicorp/vault-plugin-database-oracle/pull/171)
