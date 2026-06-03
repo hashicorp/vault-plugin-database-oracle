@@ -1,3 +1,40 @@
+## Unreleased
+
+* Updated dependencies:
+  * go 1.25.0 => 1.26.3
+  * golang.org/x/time v0.12.0 => v0.15.0
+  * cloud.google.com/go/auth v0.14.1 => v0.18.2
+  * cloud.google.com/go/auth/oauth2adapt v0.2.7 => v0.2.8
+  * github.com/hashicorp/vault/sdk v0.20.0 => v0.25.1
+  * google.golang.org/api v0.221.0 => v0.271.0
+  * golang.org/x/text v0.27.0 => v0.35.0
+  * golang.org/x/oauth2 v0.28.0 => v0.36.0
+  * github.com/googleapis/enterprise-certificate-proxy v0.3.4 => v0.3.14
+  * golang.org/x/sys v0.34.0 => v0.42.0
+  * github.com/hashicorp/go-secure-stdlib/plugincontainer v0.4.2 => v0.5.0
+  * golang.org/x/crypto v0.40.0 => v0.49.0
+  * golang.org/x/net v0.42.0 => v0.52.0
+  * github.com/moby/term v0.5.0 => v0.5.2
+  * github.com/docker/go-connections v0.5.0 => v0.6.0
+  * go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.58.0 => v0.67.0
+  * cloud.google.com/go/compute/metadata v0.6.0 => v0.9.0
+  * github.com/opencontainers/image-spec v1.1.0 => v1.1.1
+  * github.com/oklog/run v1.1.0 => v1.2.0
+  * go.opentelemetry.io/auto/sdk v1.1.0 => v1.2.1
+  * github.com/stretchr/testify v1.10.0 => v1.11.1
+  * github.com/fatih/color v1.18.0 => v1.19.0
+  * github.com/hashicorp/vault/api v1.22.0 => v1.23.0
+  * go.opentelemetry.io/otel v1.35.0 => v1.42.0
+  * go.opentelemetry.io/otel/metric v1.35.0 => v1.42.0
+  * go.opentelemetry.io/otel/trace v1.35.0 => v1.42.0
+  * google.golang.org/protobuf v1.36.5 => v1.36.11
+  * github.com/go-logr/logr v1.4.2 => v1.4.3
+  * cloud.google.com/go/cloudsqlconn v1.4.3 => v1.20.2
+  * github.com/hashicorp/go-plugin v1.6.1 => v1.7.0
+  * google.golang.org/grpc v1.70.0 => v1.79.3
+  * github.com/googleapis/gax-go/v2 v2.14.1 => v2.18.0
+  * github.com/go-jose/go-jose/v4 v4.1.1 => v4.1.4
+
 ## 0.10.2 (January 9, 2024)
 
 BUGS:
