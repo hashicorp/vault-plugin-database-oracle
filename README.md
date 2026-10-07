@@ -257,3 +257,16 @@ Vault, pre-configured to communicate with each other.
     ```
     terraform destroy
     ```
+### Go Oci8 Driver Tunning
+
+Vault uses `go-oci8` as means to interact with Oracle sub-systems. 
+
+https://github.com/mattn/go-oci8
+
+For driver specific tunning options, please refer to Oracle documentation [here](https://docs.oracle.com/en/database/oracle/oracle-database/26/netrf/parameters-for-the-sqlnet.ora.html).
+
+Example of tunning via `sqlnet.ora` to account for high latency network communications:
+
+```
+SQLNET.OUTBOUND_CONNECT_TIMEOUT=10 sec
+```
