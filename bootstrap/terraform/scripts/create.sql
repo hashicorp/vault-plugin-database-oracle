@@ -1,4 +1,4 @@
--- Copyright IBM Corp. 2017, 2025
+-- Copyright IBM Corp. 2017, 2026
 -- SPDX-License-Identifier: MPL-2.0
 
 -- This directive is essential for automation. It ensures that if any

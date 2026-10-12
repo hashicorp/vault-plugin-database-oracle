@@ -1,4 +1,4 @@
-# Copyright IBM Corp. 2017, 2025
+# Copyright IBM Corp. 2017, 2026
 # SPDX-License-Identifier: MPL-2.0
 
 url_license = "https://github.com/hashicorp/vault-plugin-database-oracle/blob/main/LICENSE"
